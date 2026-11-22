@@ -491,6 +491,7 @@ export function ContentTypesTab() {
   >([]);
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Pipeline Sequence Form State & Unified Save State
   const [localTasks, setLocalTasks] = useState<WorkflowTaskItem[]>([]);
@@ -560,6 +561,7 @@ export function ContentTypesTab() {
       if (!options?.silent) {
         setLoading(true);
       }
+      setLoadError(null);
       const [brandsRes, res, rolesRes] = await Promise.all([
         fetch("/api/settings/brands"),
         fetch("/api/settings/content-types"),
@@ -572,11 +574,19 @@ export function ContentTypesTab() {
       if (brandsRes.ok) {
         fetchedBrands = await brandsRes.json();
         setBrands(fetchedBrands);
+      } else {
+        const errData = await brandsRes.json().catch(() => ({}));
+        setLoadError(errData.error || `Failed to load brands (HTTP ${brandsRes.status}).`);
       }
 
       if (res.ok) {
         fetchedSeries = await res.json();
         setContentTypes(fetchedSeries);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setLoadError(
+          errData.error || `Failed to load content series (HTTP ${res.status}).`
+        );
       }
 
       if (rolesRes.ok) {
@@ -1470,6 +1480,22 @@ export function ContentTypesTab() {
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{loadError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchContentTypes()}
+            className="px-3 py-1 rounded-lg bg-destructive text-destructive-foreground font-semibold hover:bg-destructive/90 cursor-pointer shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* ------------------------------------------------------------- */}
       {/* Unified Hierarchy Navigation Card: Brand -> Content Series    */}
       {/* ------------------------------------------------------------- */}
