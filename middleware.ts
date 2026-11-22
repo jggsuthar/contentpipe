@@ -22,18 +22,9 @@ export async function middleware(req: NextRequest) {
   const isAuth = !!token;
   const role = token?.role as "creator" | "team" | null | undefined;
 
-  // 1. Root route '/'
-  if (pathname === "/") {
-    if (!isAuth) {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
-    if (role === "creator") {
-      return NextResponse.redirect(new URL("/creator/dashboard", req.url));
-    }
-    if (role === "team") {
-      return NextResponse.redirect(new URL("/team/dashboard", req.url));
-    }
-    return NextResponse.redirect(new URL("/login?error=Unauthorized", req.url));
+  // 1. Public Homepage, Privacy & Terms routes
+  if (pathname === "/" || pathname === "/privacy" || pathname === "/terms") {
+    return NextResponse.next();
   }
 
   // 2. Login route '/login'

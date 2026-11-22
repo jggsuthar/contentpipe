@@ -89,8 +89,14 @@ export function AppHeader() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Do not render top header on login or error pages if unauthenticated
-  if (pathname === "/login" || pathname === "/unauthorized") {
+  // Do not render authenticated app header on public, login, or error pages
+  if (
+    pathname === "/" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/login" ||
+    pathname === "/unauthorized"
+  ) {
     return null;
   }
 

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
+import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Clapperboard, AlertTriangle, Loader2, Database, ShieldCheck } from "lucide-react";
+import { Clapperboard, AlertTriangle, Loader2, Database } from "lucide-react";
 
 function LoginContent() {
   const { data: session, status } = useSession();
@@ -52,7 +53,7 @@ function LoginContent() {
     try {
       setLoadingGoogle(true);
       setErrorMsg(null);
-      await signIn("google", { callbackUrl: "/" });
+      await signIn("google", { callbackUrl: "/login" });
     } catch (err) {
       setErrorMsg("Failed to initiate Google sign-in. Check your connection.");
       setLoadingGoogle(false);
@@ -63,12 +64,12 @@ function LoginContent() {
     <div className="min-h-screen w-full flex flex-col justify-between p-4 md:p-8">
       {/* Top Header */}
       <header className="w-full flex items-center justify-between max-w-6xl mx-auto">
-        <div className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
           <div className="w-9 h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold shadow-sm">
             <Clapperboard className="w-4 h-4" />
           </div>
           <span className="font-semibold text-sm tracking-tight">ContentPipe</span>
-        </div>
+        </Link>
       </header>
 
       {/* Main Login Card */}
@@ -141,8 +142,15 @@ function LoginContent() {
       </main>
 
       {/* Footer Info */}
-      <footer className="w-full text-center text-xs text-muted-foreground py-4 font-mono">
-        Creator Production Register System — Phase 1: Database & Dynamic Auth
+      <footer className="w-full text-center text-xs text-muted-foreground py-4 flex flex-wrap items-center justify-center gap-4">
+        <span>ContentPipe • Internal Production Workspace</span>
+        <span>•</span>
+        <Link href="/privacy" className="hover:text-foreground transition-colors">
+          Privacy Policy
+        </Link>
+        <Link href="/terms" className="hover:text-foreground transition-colors">
+          Terms of Service
+        </Link>
       </footer>
     </div>
   );
