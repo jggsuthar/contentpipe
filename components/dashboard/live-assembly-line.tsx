@@ -105,7 +105,7 @@ export function LiveAssemblyLine({ pipelines }: LiveAssemblyLineProps) {
                   href={series.indexUrl}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full glass-subtle hover:bg-primary hover:text-primary-foreground text-foreground font-semibold transition-colors"
                 >
-                  <span>Index</span>
+                  <span>Tracker</span>
                   <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>

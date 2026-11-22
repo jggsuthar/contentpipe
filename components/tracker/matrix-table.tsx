@@ -571,7 +571,7 @@ export function MatrixTable({
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-border/60">
+          <tbody className="divide-y divide-border [&_td]:border-b [&_td]:border-border">
             {rows.map((row) => {
               const isEmptyPlaceholder = !row.title;
               const isSelectedSwap = selectedForSwap?.id === row.id;

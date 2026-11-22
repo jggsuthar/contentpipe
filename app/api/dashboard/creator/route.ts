@@ -307,7 +307,7 @@ export async function GET(req: Request) {
 
       const brandSeg = type.brand ? getBrandUrlSegment(type.brand) : null;
       const seriesSeg = getSeriesUrlSegment({ id: type.id, name: type.name });
-      const indexUrl = brandSeg ? `/index/${brandSeg}/${seriesSeg}` : `/index`;
+      const indexUrl = brandSeg ? `/tracker/${brandSeg}/${seriesSeg}` : `/tracker`;
 
       // Track occupied date keys across ALL non-idea-bank items (active + archived)
       const occupiedDateMap = new Map<

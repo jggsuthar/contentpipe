@@ -3,7 +3,7 @@
 import { use } from "react";
 import { IndexBoard } from "@/components/tracker/index-board";
 
-export default function IndexBrandPage({
+export default function TrackerBrandPage({
   params,
 }: {
   params: Promise<{ brand: string }>;

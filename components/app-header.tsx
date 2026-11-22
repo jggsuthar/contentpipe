@@ -46,11 +46,10 @@ export function AppHeader() {
       active: pathname.startsWith("/creator/dashboard") || pathname.startsWith("/team/dashboard"),
     },
     {
-      label: "Index",
-      href: "/index",
+      label: "Tracker",
+      href: "/tracker",
       icon: Table,
       active:
-        pathname.startsWith("/index") ||
         pathname.startsWith("/tracker") ||
         pathname.startsWith("/scripts") ||
         pathname.startsWith("/content"),

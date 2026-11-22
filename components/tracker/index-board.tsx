@@ -112,14 +112,18 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
-      if (path.startsWith("/index")) {
-        const parts = path.split("/").filter(Boolean); // ["index", brand?, series?]
-        setRouteBrand(parts[1] ? decodeURIComponent(parts[1]) : null);
-        setRouteSeries(parts[2] ? decodeURIComponent(parts[2]) : null);
-      } else if (path.startsWith("/tracker")) {
+      if (path.startsWith("/tracker")) {
         const sp = new URLSearchParams(window.location.search);
-        setRouteBrand(sp.get("brand"));
-        setRouteSeries(sp.get("type"));
+        const qBrand = sp.get("brand");
+        const qType = sp.get("type");
+        if (qBrand || qType) {
+          setRouteBrand(qBrand);
+          setRouteSeries(qType);
+        } else {
+          const parts = path.split("/").filter(Boolean); // ["tracker", brand?, series?]
+          setRouteBrand(parts[1] ? decodeURIComponent(parts[1]) : null);
+          setRouteSeries(parts[2] ? decodeURIComponent(parts[2]) : null);
+        }
       }
     };
     window.addEventListener("popstate", handlePopState);
@@ -491,15 +495,15 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
           const sSeg = getSeriesUrlSegment(data.activeContentType);
           setSessionCache(getTrackerCacheKey(bSeg, sSeg, view), snapshot);
 
-          // Normalize bare /index or /index/[brand] URL cleanly to /index/brand/series
+          // Normalize bare /tracker or /tracker/[brand] URL cleanly to /tracker/brand/series
           if (typeof window !== "undefined") {
             const p = window.location.pathname;
-            if (p === "/index" || p === "/index/" || p === `/index/${bSeg}`) {
-              window.history.replaceState(null, "", `/index/${bSeg}/${sSeg}`);
+            if (p === "/tracker" || p === "/tracker/" || p === `/tracker/${bSeg}`) {
+              window.history.replaceState(null, "", `/tracker/${bSeg}/${sSeg}`);
             }
           }
         }
-        // Also warm default key when viewing the default Brand's first series so navbar /index hits 0ms
+        // Also warm default key when viewing the default Brand's first series so navbar /tracker hits 0ms
         if (
           !getSessionCache(getTrackerCacheKey(null, null, view)) ||
           (!queryBrand && !queryType)
@@ -1118,14 +1122,14 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
     if (firstSeries) {
       const sSeg = getSeriesUrlSegment(firstSeries);
       setActiveContentType((prev: any) => (prev ? { ...prev, id: firstSeries.id, name: firstSeries.name } : firstSeries));
-      const nextUrl = `/index/${bSeg}/${sSeg}`;
+      const nextUrl = `/tracker/${bSeg}/${sSeg}`;
       if (typeof window !== "undefined") {
         window.history.pushState(null, "", nextUrl);
       }
       setRouteBrand(bSeg);
       setRouteSeries(sSeg);
     } else {
-      const nextUrl = `/index/${bSeg}`;
+      const nextUrl = `/tracker/${bSeg}`;
       if (typeof window !== "undefined") {
         window.history.pushState(null, "", nextUrl);
       }
@@ -1149,7 +1153,7 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
       );
     }
 
-    const nextUrl = bSeg ? `/index/${bSeg}/${sSeg}` : `/index`;
+    const nextUrl = bSeg ? `/tracker/${bSeg}/${sSeg}` : `/tracker`;
     if (typeof window !== "undefined" && bSeg) {
       window.history.pushState(null, "", nextUrl);
     }
@@ -1164,7 +1168,7 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
         {/* Left: Title + Badge + Chained Brand -> Content Series Selector */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <h1 className="font-bold text-sm sm:text-base tracking-tight text-foreground">Index</h1>
+            <h1 className="font-bold text-sm sm:text-base tracking-tight text-foreground">Tracker</h1>
             <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase font-bold tracking-wider bg-primary/15 text-primary border border-primary/25">
               {currentView === "archive" ? "Archive Vault" : "Matrix Board"}
             </span>

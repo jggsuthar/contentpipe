@@ -210,7 +210,7 @@ export function FocusRadarTable({
                   ? "Script"
                   : row.workspaceUrl.startsWith("/content/")
                   ? "Content"
-                  : "Index";
+                  : "Tracker";
 
                 return (
                   <tr

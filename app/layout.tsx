@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   title: "ContentPipe — Creator Production & Review System",
   description:
     "A minimalist, distraction-free production tracker, script workspace, and review hub for creators and teams.",
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
