@@ -292,11 +292,17 @@ async function executeEnsureContentDriveFolders(
         ? existingFolders.raw_footage_id
         : null;
 
-    // Top-level folders (parent_id is null/undefined or points to project/root)
-    for (const item of normalizedArch) {
-      if (!item.parent_id || item.parent_id === "root" || item.parent_id === "project") {
+    // Top-level folders (parent_id is null/undefined or points to project/root) in parallel
+    const topLevelItems = normalizedArch.filter(
+      (item) => !item.parent_id || item.parent_id === "root" || item.parent_id === "project"
+    );
+    await Promise.all(
+      topLevelItems.map(async (item) => {
         const lowerName = item.name.trim().toLowerCase();
-        let fId = folderByName.get(lowerName) || existingFolderIds[item.id] || existingFolderIds[item.name];
+        let fId =
+          folderByName.get(lowerName) ||
+          existingFolderIds[item.id] ||
+          existingFolderIds[item.name];
         if (!fId) {
           fId = await findOrCreateFolder(drive, item.name, projectFolderId);
           folderByName.set(lowerName, fId);
@@ -306,19 +312,22 @@ async function executeEnsureContentDriveFolders(
         driveFolderIdsRecord[item.name] = fId;
         if (
           !rawFolderId ||
-          item.name.toLowerCase() === "raw_footage" ||
-          item.name.toLowerCase() === "raw footage" ||
+          lowerName === "raw_footage" ||
+          lowerName === "raw footage" ||
           item.id === "fld_raw"
         ) {
           rawFolderId = fId;
         }
-      }
-    }
+      })
+    );
 
-    // Subfolders (parent_id points to another architecture folder item)
-    for (const item of normalizedArch) {
-      if (item.parent_id && item.parent_id !== "root" && item.parent_id !== "project") {
-        const parentDriveId = folderIdMap.get(item.parent_id) || projectFolderId;
+    // Subfolders (parent_id points to another architecture folder item) in parallel
+    const subItems = normalizedArch.filter(
+      (item) => item.parent_id && item.parent_id !== "root" && item.parent_id !== "project"
+    );
+    await Promise.all(
+      subItems.map(async (item) => {
+        const parentDriveId = folderIdMap.get(item.parent_id!) || projectFolderId;
         let fId = existingFolderIds[item.id] || existingFolderIds[item.name];
         if (!fId) {
           fId = await findOrCreateFolder(drive, item.name, parentDriveId);
@@ -326,16 +335,17 @@ async function executeEnsureContentDriveFolders(
         folderIdMap.set(item.id, fId);
         driveFolderIdsRecord[item.id] = fId;
         driveFolderIdsRecord[item.name] = fId;
+        const lowerName = item.name.trim().toLowerCase();
         if (
           !rawFolderId &&
-          (item.name.toLowerCase() === "raw_footage" ||
-            item.name.toLowerCase() === "raw footage" ||
+          (lowerName === "raw_footage" ||
+            lowerName === "raw footage" ||
             item.id === "fld_raw")
         ) {
           rawFolderId = fId;
         }
-      }
-    }
+      })
+    );
 
     const finalRawId =
       rawFolderId ||
@@ -354,6 +364,7 @@ async function executeEnsureContentDriveFolders(
     };
   } catch (error) {
     console.error("Error creating Google Drive folders:", error);
+    folderPathCache.clear();
     // Fallback to mock structure if Google API quotas fail
     const mockBase = `drive_err_${contentId || "item"}`;
     return {
@@ -367,6 +378,8 @@ async function executeEnsureContentDriveFolders(
   }
 }
 
+const folderPathCache = new Map<string, string>();
+
 /**
  * Finds or creates a single Google Drive folder by name and parent ID.
  */
@@ -375,6 +388,12 @@ async function findOrCreateFolder(
   folderName: string,
   parentId?: string
 ): Promise<string> {
+  const cacheKey = `${parentId || "root"}::${folderName.trim().toLowerCase()}`;
+  const cachedId = folderPathCache.get(cacheKey);
+  if (cachedId) {
+    return cachedId;
+  }
+
   let query = `name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
   if (parentId) {
     query += ` and '${parentId}' in parents`;
@@ -389,7 +408,9 @@ async function findOrCreateFolder(
   });
 
   if (list.data.files && list.data.files.length > 0) {
-    return list.data.files[0].id!;
+    const existingId = list.data.files[0].id!;
+    folderPathCache.set(cacheKey, existingId);
+    return existingId;
   }
 
   const fileMetadata: any = {
@@ -406,7 +427,9 @@ async function findOrCreateFolder(
     supportsAllDrives: true,
   });
 
-  return folder.data.id!;
+  const newId = folder.data.id!;
+  folderPathCache.set(cacheKey, newId);
+  return newId;
 }
 
 /**

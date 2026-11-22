@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -212,42 +212,55 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Ensure other intermediate workflow tasks exist with default 'not_done'
-      for (const wt of contentType.workflow_tasks) {
-        if (wt.task_name.toLowerCase() === "ideation") continue;
-        const exists = existingItem.task_instances.some(
-          (t) => t.task_name.toLowerCase() === wt.task_name.toLowerCase()
-        );
-        if (!exists) {
-          await prisma.taskInstance.create({
-            data: {
-              content_item_id: updated.id,
-              task_name: wt.task_name,
-              status: "not_done",
-            },
-          });
-        }
+      // Ensure other intermediate workflow tasks exist with default 'not_done' in one query
+      const existingTaskNames = new Set(
+        existingItem.task_instances.map((t) => t.task_name.toLowerCase())
+      );
+      const missingTaskRows = contentType.workflow_tasks
+        .filter(
+          (wt) =>
+            wt.task_name.toLowerCase() !== "ideation" &&
+            !existingTaskNames.has(wt.task_name.toLowerCase())
+        )
+        .map((wt) => ({
+          content_item_id: updated.id,
+          task_name: wt.task_name,
+          status: "not_done",
+        }));
+
+      if (missingTaskRows.length > 0) {
+        await prisma.taskInstance.createMany({
+          data: missingTaskRows,
+        });
       }
 
-      // Automatically generate default Google Drive folder architecture
+      // Provision Google Drive folders in the background after returning response immediately
       if (!existingItem.unique_content_id && assignedId) {
-        try {
-          const driveFolders = await ensureContentDriveFolders(
-            contentType.name,
-            assignedId,
-            cleanTitle,
-            null,
-            contentType.default_folder_architecture
-          );
-          if (driveFolders?.main_folder_id) {
-            await prisma.contentItem.update({
-              where: { id: updated.id },
-              data: { drive_folders: JSON.stringify(driveFolders) },
-            });
+        const seriesName = contentType.name;
+        const folderArch = contentType.default_folder_architecture;
+        const targetItemId = updated.id;
+        const targetUniqueId = assignedId;
+        const targetTitle = cleanTitle;
+
+        after(async () => {
+          try {
+            const driveFolders = await ensureContentDriveFolders(
+              seriesName,
+              targetUniqueId,
+              targetTitle,
+              null,
+              folderArch
+            );
+            if (driveFolders?.main_folder_id) {
+              await prisma.contentItem.update({
+                where: { id: targetItemId },
+                data: { drive_folders: JSON.stringify(driveFolders) },
+              });
+            }
+          } catch (err) {
+            console.error("Background Drive folders generation error:", err);
           }
-        } catch (err) {
-          console.error("Auto Drive folders generation error:", err);
-        }
+        });
       }
 
       return NextResponse.json({
@@ -279,24 +292,30 @@ export async function POST(req: NextRequest) {
       include: { task_instances: true },
     });
 
-    // Automatically generate default Google Drive folder architecture
-    try {
-      const driveFolders = await ensureContentDriveFolders(
-        contentType.name,
-        nextUniqueId,
-        cleanTitle,
-        null,
-        contentType.default_folder_architecture
-      );
-      if (driveFolders?.main_folder_id) {
-        await prisma.contentItem.update({
-          where: { id: created.id },
-          data: { drive_folders: JSON.stringify(driveFolders) },
-        });
+    // Provision Google Drive folder architecture in background so UI responds instantly
+    const createdId = created.id;
+    const seriesName = contentType.name;
+    const folderArch = contentType.default_folder_architecture;
+
+    after(async () => {
+      try {
+        const driveFolders = await ensureContentDriveFolders(
+          seriesName,
+          nextUniqueId,
+          cleanTitle,
+          null,
+          folderArch
+        );
+        if (driveFolders?.main_folder_id) {
+          await prisma.contentItem.update({
+            where: { id: createdId },
+            data: { drive_folders: JSON.stringify(driveFolders) },
+          });
+        }
+      } catch (err) {
+        console.error("Background Drive folders generation error:", err);
       }
-    } catch (err) {
-      console.error("Auto Drive folders generation error:", err);
-    }
+    });
 
     return NextResponse.json({
       ...created,

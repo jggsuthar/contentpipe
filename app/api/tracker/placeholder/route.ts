@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -184,25 +184,33 @@ export async function POST(req: NextRequest) {
       include: { task_instances: true },
     });
 
-    // Auto generate Google Drive folders if titled
+    // Provision Google Drive folders in background if titled
     if (cleanTitle && assignedId) {
-      try {
-        const driveFolders = await ensureContentDriveFolders(
-          contentType.name,
-          assignedId,
-          cleanTitle,
-          null,
-          contentType.default_folder_architecture
-        );
-        if (driveFolders?.main_folder_id) {
-          await prisma.contentItem.update({
-            where: { id: created.id },
-            data: { drive_folders: JSON.stringify(driveFolders) },
-          });
+      const targetId = created.id;
+      const targetUniqueId = assignedId;
+      const targetTitle = cleanTitle;
+      const seriesName = contentType.name;
+      const folderArch = contentType.default_folder_architecture;
+
+      after(async () => {
+        try {
+          const driveFolders = await ensureContentDriveFolders(
+            seriesName,
+            targetUniqueId,
+            targetTitle,
+            null,
+            folderArch
+          );
+          if (driveFolders?.main_folder_id) {
+            await prisma.contentItem.update({
+              where: { id: targetId },
+              data: { drive_folders: JSON.stringify(driveFolders) },
+            });
+          }
+        } catch (err) {
+          console.error("Background Drive folders generation error:", err);
         }
-      } catch (err) {
-        console.error("Auto Drive folders generation error:", err);
-      }
+      });
     }
 
     return NextResponse.json({

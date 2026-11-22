@@ -104,10 +104,13 @@ function IndexContent() {
     typeId?: string | null,
     horizon?: number | null,
     view: "active" | "archive" = currentView,
-    brandId?: string | null
+    brandId?: string | null,
+    options?: { silent?: boolean }
   ) => {
     try {
-      setLoading(true);
+      if (!options?.silent) {
+        setLoading(true);
+      }
       const queryBrand = brandId !== undefined ? brandId : selectedBrandId || "";
       const queryType = typeId !== undefined ? typeId : selectedTypeId || "";
       const params = new URLSearchParams();
@@ -141,7 +144,9 @@ function IndexContent() {
     } catch (err) {
       console.error("Error fetching tracker data:", err);
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -149,14 +154,15 @@ function IndexContent() {
     fetchTrackerData(selectedTypeId, horizonMonths, currentView, selectedBrandId);
   }, [selectedBrandId, selectedTypeId, horizonMonths, currentView]);
 
-  // Refresh matrix when an Idea Bank item is promoted from the global Idea Bank modal
+  // Refresh matrix silently when an Idea Bank item is promoted from the global Idea Bank modal
   useEffect(() => {
     const handleIdeasUpdated = () => {
       fetchTrackerData(
         activeContentType?.id || selectedTypeId,
         horizonMonths,
         currentView,
-        activeBrand?.id || selectedBrandId
+        activeBrand?.id || selectedBrandId,
+        { silent: true }
       );
     };
     window.addEventListener("contentpipe:ideas-updated", handleIdeasUpdated);
@@ -164,9 +170,32 @@ function IndexContent() {
       window.removeEventListener("contentpipe:ideas-updated", handleIdeasUpdated);
   }, [activeContentType?.id, selectedTypeId, horizonMonths, currentView, activeBrand?.id, selectedBrandId]);
 
-  // Handler: Update Title (Auto-claims ID & Marks Ideation Done OR Reverts on Clear)
+  // Handler: Update Title (Optimistic in-place update + silent sync)
   const handleUpdateTitle = async (row: MatrixRowItem, newTitle: string) => {
     if (!activeContentType) return;
+
+    const clean = newTitle.trim();
+    const prevRows = matrixRows;
+
+    // Immediate optimistic UI update so the table feels instant
+    setMatrixRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== row.id) return r;
+        if (!clean) {
+          return {
+            ...r,
+            title: "",
+            unique_content_id: null,
+            is_placeholder: true,
+          };
+        }
+        return {
+          ...r,
+          title: clean,
+          is_placeholder: false,
+        };
+      })
+    );
 
     try {
       const res = await fetch("/api/tracker/item", {
@@ -181,10 +210,33 @@ function IndexContent() {
       });
 
       if (res.ok) {
-        await fetchTrackerData(activeContentType.id, horizonMonths, currentView);
+        const saved = await res.json();
+        // Immediately patch returned DB id + generated unique_content_id before silent sync
+        if (saved && saved.id) {
+          setMatrixRows((prev) =>
+            prev.map((r) =>
+              r.id === row.id
+                ? {
+                    ...r,
+                    id: saved.id,
+                    title: saved.title ?? clean,
+                    unique_content_id: saved.unique_content_id ?? r.unique_content_id,
+                    is_placeholder: Boolean(saved.is_placeholder),
+                    task_instances: saved.task_instances || r.task_instances,
+                  }
+                : r
+            )
+          );
+        }
+        await fetchTrackerData(activeContentType.id, horizonMonths, currentView, undefined, {
+          silent: true,
+        });
+      } else {
+        setMatrixRows(prevRows);
       }
     } catch (err) {
       console.error("Error updating title:", err);
+      setMatrixRows(prevRows);
     }
   };
 
@@ -205,17 +257,33 @@ function IndexContent() {
       });
 
       if (res.ok) {
-        await fetchTrackerData(activeContentType.id, horizonMonths, currentView);
+        await fetchTrackerData(activeContentType.id, horizonMonths, currentView, undefined, {
+          silent: true,
+        });
       }
     } catch (err) {
       console.error("Error swapping slots:", err);
     }
   };
 
-  // Handler: Toggle Action Item
+  // Handler: Toggle Action Item (Optimistic)
   const handleToggleActionItem = async (itemId: string, actionItemId: string) => {
+    const prevRows = matrixRows;
+    setMatrixRows((prev) =>
+      prev.map((r) =>
+        r.id === itemId
+          ? {
+              ...r,
+              custom_action_items: r.custom_action_items.map((a) =>
+                a.id === actionItemId ? { ...a, is_closed: !a.is_closed } : a
+              ),
+            }
+          : r
+      )
+    );
+
     try {
-      await fetch("/api/tracker/action-items", {
+      const res = await fetch("/api/tracker/action-items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -223,9 +291,16 @@ function IndexContent() {
           toggle_id: actionItemId,
         }),
       });
-      await fetchTrackerData(activeContentType?.id, horizonMonths, currentView);
+      if (res.ok) {
+        await fetchTrackerData(activeContentType?.id, horizonMonths, currentView, undefined, {
+          silent: true,
+        });
+      } else {
+        setMatrixRows(prevRows);
+      }
     } catch (err) {
       console.error("Error toggling action item:", err);
+      setMatrixRows(prevRows);
     }
   };
 
@@ -240,7 +315,9 @@ function IndexContent() {
           text,
         }),
       });
-      await fetchTrackerData(activeContentType?.id, horizonMonths, currentView);
+      await fetchTrackerData(activeContentType?.id, horizonMonths, currentView, undefined, {
+        silent: true,
+      });
     } catch (err) {
       console.error("Error adding action item:", err);
     }
@@ -254,6 +331,23 @@ function IndexContent() {
     publishedUrl?: string
   ): Promise<{ success: boolean; error?: string }> => {
     if (!activeContentType) return { success: false, error: "Active pipeline not found" };
+
+    const prevRows = matrixRows;
+    setMatrixRows((prev) =>
+      prev.map((r) =>
+        r.id === itemId
+          ? {
+              ...r,
+              published_url: publishedUrl !== undefined ? publishedUrl : r.published_url,
+              task_instances: r.task_instances.map((ti) =>
+                ti.task_name.toLowerCase() === taskName.toLowerCase()
+                  ? { ...ti, status: newStatus }
+                  : ti
+              ),
+            }
+          : r
+      )
+    );
 
     try {
       const res = await fetch("/api/tracker/task-status", {
@@ -271,18 +365,27 @@ function IndexContent() {
 
       const data = await res.json();
       if (!res.ok) {
+        setMatrixRows(prevRows);
         return { success: false, error: data.error || "Failed to update task status" };
       }
 
-      await fetchTrackerData(activeContentType.id, horizonMonths, currentView);
+      await fetchTrackerData(activeContentType.id, horizonMonths, currentView, undefined, {
+        silent: true,
+      });
       return { success: true };
     } catch (err: any) {
+      setMatrixRows(prevRows);
       return { success: false, error: err.message || "Network error updating task status" };
     }
   };
 
-  // Handler: Update Published Content Link
+  // Handler: Update Published Content Link (Optimistic)
   const handleUpdatePublishedUrl = async (itemId: string, publishedUrl: string | null) => {
+    const prevRows = matrixRows;
+    setMatrixRows((prev) =>
+      prev.map((r) => (r.id === itemId ? { ...r, published_url: publishedUrl } : r))
+    );
+
     try {
       const res = await fetch("/api/tracker/item", {
         method: "PATCH",
@@ -293,17 +396,36 @@ function IndexContent() {
         }),
       });
       if (res.ok) {
-        await fetchTrackerData(activeContentType?.id, horizonMonths, currentView);
+        await fetchTrackerData(activeContentType?.id, horizonMonths, currentView, undefined, {
+          silent: true,
+        });
+      } else {
+        setMatrixRows(prevRows);
       }
     } catch (err) {
       console.error("Error updating published content link:", err);
+      setMatrixRows(prevRows);
     }
   };
 
-  // Handler: Toggle Misc Task Checkbox
+  // Handler: Toggle Misc Task Checkbox (Optimistic)
   const handleToggleMiscTask = async (itemId: string, taskName: string, isDone: boolean) => {
+    const prevRows = matrixRows;
+    setMatrixRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== itemId) return r;
+        const exists = r.misc_tasks_status.some((m) => m.task_name === taskName);
+        const updatedMisc = exists
+          ? r.misc_tasks_status.map((m) =>
+              m.task_name === taskName ? { ...m, is_done: isDone } : m
+            )
+          : [...r.misc_tasks_status, { task_name: taskName, is_done: isDone }];
+        return { ...r, misc_tasks_status: updatedMisc };
+      })
+    );
+
     try {
-      await fetch("/api/tracker/misc-status", {
+      const res = await fetch("/api/tracker/misc-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -313,9 +435,16 @@ function IndexContent() {
           is_done: isDone,
         }),
       });
-      await fetchTrackerData(activeContentType?.id, horizonMonths, currentView);
+      if (res.ok) {
+        await fetchTrackerData(activeContentType?.id, horizonMonths, currentView, undefined, {
+          silent: true,
+        });
+      } else {
+        setMatrixRows(prevRows);
+      }
     } catch (err) {
       console.error("Error toggling misc task:", err);
+      setMatrixRows(prevRows);
     }
   };
 
@@ -342,7 +471,9 @@ function IndexContent() {
         };
       }
 
-      await fetchTrackerData(activeContentType?.id, horizonMonths, currentView);
+      await fetchTrackerData(activeContentType?.id, horizonMonths, currentView, undefined, {
+        silent: true,
+      });
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message || "Network error" };
@@ -638,7 +769,9 @@ function IndexContent() {
           contentType={activeContentType}
           initialDate={addPlaceholderDate}
           existingRows={matrixRows}
-          onPlaceholderAdded={() => fetchTrackerData()}
+          onPlaceholderAdded={() =>
+            fetchTrackerData(undefined, undefined, currentView, undefined, { silent: true })
+          }
         />
       )}
 
@@ -654,7 +787,7 @@ function IndexContent() {
           brandColor={activeContentType.brand?.color || activeBrand?.color}
           onDeleted={() => {
             setDeletingRow(null);
-            fetchTrackerData();
+            fetchTrackerData(undefined, undefined, currentView, undefined, { silent: true });
           }}
         />
       )}
@@ -671,7 +804,7 @@ function IndexContent() {
           brandColor={activeContentType.brand?.color || activeBrand?.color}
           onUpdated={() => {
             setChangingPublishDateRow(null);
-            fetchTrackerData();
+            fetchTrackerData(undefined, undefined, currentView, undefined, { silent: true });
           }}
         />
       )}
@@ -682,7 +815,9 @@ function IndexContent() {
           isOpen={isOrganizerOpen}
           onClose={() => setIsOrganizerOpen(false)}
           contentType={activeContentType}
-          onOrganized={() => fetchTrackerData()}
+          onOrganized={() =>
+            fetchTrackerData(undefined, undefined, currentView, undefined, { silent: true })
+          }
         />
       )}
     </div>

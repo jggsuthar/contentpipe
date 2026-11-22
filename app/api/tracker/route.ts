@@ -21,24 +21,16 @@ export async function GET(req: NextRequest) {
   const isCreator = session.user.role === "creator";
 
   try {
-    await ensureDefaultBrandAndBackfill();
-
     const { searchParams } = new URL(req.url);
     const brandId = searchParams.get("brandId");
     const contentTypeId = searchParams.get("contentTypeId");
     const horizonParam = searchParams.get("horizonMonths");
     const viewParam = searchParams.get("view") || "active"; // "active" | "archive"
 
-    // Fetch system default open horizon from CreatorSettings (default: 6 rolling months)
-    const settings = await prisma.creatorSettings.findUnique({
-      where: { id: "default" },
-    });
-    const systemDefaultMonths = settings?.default_months_open || 6;
-
-    const horizonMonths = horizonParam ? parseInt(horizonParam, 10) : systemDefaultMonths;
-
-    // 1. Fetch all Brands and Content Series
-    const [allBrands, allContentTypes] = await Promise.all([
+    // 1. Run startup backfill, settings, brands, content series & user profile in parallel
+    const [, settings, allBrands, allContentTypes, userProfile] = await Promise.all([
+      ensureDefaultBrandAndBackfill(),
+      prisma.creatorSettings.findUnique({ where: { id: "default" } }),
       prisma.brand.findMany({
         orderBy: [{ is_default: "desc" }, { created_at: "asc" }],
         select: {
@@ -62,10 +54,13 @@ export async function GET(req: NextRequest) {
           },
         },
       }),
+      getDynamicUserProfile(session.user.email),
     ]);
 
+    const systemDefaultMonths = settings?.default_months_open || 6;
+    const horizonMonths = horizonParam ? parseInt(horizonParam, 10) : systemDefaultMonths;
+
     // Filter Content Series according to assigned permissions for team members
-    const userProfile = await getDynamicUserProfile(session.user.email);
     let allowedContentTypes = allContentTypes;
     if (!isCreator) {
       const assigned = userProfile?.assignedContentTypes || [];

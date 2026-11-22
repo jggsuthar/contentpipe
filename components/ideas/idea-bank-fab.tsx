@@ -38,6 +38,19 @@ export function IdeaBankFab() {
     return () => window.removeEventListener("popstate", syncFullscreenParam);
   }, [pathname]);
 
+  const fetchIdeasOnly = useCallback(async () => {
+    if (!isCreator) return;
+    try {
+      const ideasRes = await fetch("/api/ideas?all=true");
+      if (ideasRes.ok) {
+        const ideasData = await ideasRes.json();
+        setIdeas(Array.isArray(ideasData) ? ideasData : []);
+      }
+    } catch (err) {
+      console.error("Error loading Idea Bank badge count:", err);
+    }
+  }, [isCreator]);
+
   const fetchIdeasAndMeta = useCallback(async () => {
     if (!isCreator) return;
     setLoading(true);
@@ -67,12 +80,16 @@ export function IdeaBankFab() {
     }
   }, [isCreator]);
 
+  // Defer lightweight badge fetch slightly so active page API calls get priority
   useEffect(() => {
-    if (isCreator) {
-      fetchIdeasAndMeta();
-    }
-  }, [isCreator, fetchIdeasAndMeta]);
+    if (!isCreator) return;
+    const timer = setTimeout(() => {
+      fetchIdeasOnly();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [isCreator, fetchIdeasOnly]);
 
+  // Load full Brands & Content Series options only when Idea Bank modal opens
   useEffect(() => {
     if (isOpen && isCreator) {
       fetchIdeasAndMeta();

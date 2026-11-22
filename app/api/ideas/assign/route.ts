@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import prisma from "@/lib/prisma";
 import { generateNextContentId } from "@/lib/id-generator";
 import { verifyPermission } from "@/lib/api-guard";
@@ -549,24 +549,31 @@ export async function POST(req: NextRequest) {
     }
 
     if (!existingFolders?.main_folder_id && savedItem.unique_content_id) {
-      try {
-        const driveFolders = await ensureContentDriveFolders(
-          contentType.name,
-          savedItem.unique_content_id,
-          savedItem.title || "Untitled Video",
-          null,
-          contentType.default_folder_architecture
-        );
-        if (driveFolders?.main_folder_id) {
-          savedItem = await prisma.contentItem.update({
-            where: { id: savedItem.id },
-            data: { drive_folders: JSON.stringify(driveFolders) },
-            include: { task_instances: true },
-          });
+      const targetId = savedItem.id;
+      const targetUniqueId = savedItem.unique_content_id;
+      const targetTitle = savedItem.title || "Untitled Video";
+      const seriesName = contentType.name;
+      const folderArch = contentType.default_folder_architecture;
+
+      after(async () => {
+        try {
+          const driveFolders = await ensureContentDriveFolders(
+            seriesName,
+            targetUniqueId,
+            targetTitle,
+            null,
+            folderArch
+          );
+          if (driveFolders?.main_folder_id) {
+            await prisma.contentItem.update({
+              where: { id: targetId },
+              data: { drive_folders: JSON.stringify(driveFolders) },
+            });
+          }
+        } catch (err) {
+          console.error("Background Drive folders error on idea assign:", err);
         }
-      } catch (err) {
-        console.error("Auto Drive folders error on idea assign:", err);
-      }
+      });
     }
 
     return NextResponse.json({
