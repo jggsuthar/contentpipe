@@ -1,0 +1,376 @@
+// Prisma Schema for Creator Production & Register System (SPEC.md)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// -------------------------------------------------------------
+// 1. Roles (Team Members & Dynamic Permissions)
+// -------------------------------------------------------------
+model Role {
+  id                    String        @id @default(cuid())
+  name                  String
+  email                 String        @unique
+  role_title            String        // e.g., "Lead Video Editor", "Script Writer", "Thumbnail Designer"
+  assigned_content_types String       @default("[]") // JSON array of Content Type IDs or names
+  permissions           String        @default("{}") // JSON object: view, edit, contribute, submission, etc.
+  created_at            DateTime      @default(now())
+  updated_at            DateTime      @updatedAt
+
+  submissions           Submission[]
+
+  @@map("roles")
+}
+
+// -------------------------------------------------------------
+// 1b. Brands (Channels / Product Lines)
+// -------------------------------------------------------------
+model Brand {
+  id             String        @id @default(cuid())
+  name           String        @unique
+  slug           String?       @unique
+  description    String?
+  color          String?       @default("#6366f1")
+  is_default     Boolean       @default(false)
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+
+  content_series ContentType[]
+  content_items  ContentItem[]
+  ideas          IdeaBank[]
+
+  @@map("brands")
+}
+
+// -------------------------------------------------------------
+// 2. Content Series (formerly Content Types) & Configs
+// -------------------------------------------------------------
+model ContentType {
+  id                    String         @id @default(cuid())
+  brand_id              String?
+  name                  String         // e.g., "Shorts", "Long-Form", "Podcasts"
+  prefix                String?
+  suffix                String?
+  id_generation_type    String         @default("sequential") // "sequential" | "date_counter" (YYMMnnn)
+  default_months_open   Int            @default(3) // 1 to 6 months
+  cadence_type          String         @default("weekly") // "weekly" | "biweekly" | "triweekly" | "quadrupleweekly"
+  cadence_start_date    DateTime?
+  upload_days           String         @default("[\"Tuesday\"]") // JSON array e.g. ["Tuesday", "Saturday"]
+  script_default_columns String?       // JSON array of column definitions
+  default_folder_architecture String?  // JSON array of default folder architecture definitions
+  skipped_publish_dates String?        @default("[]") // JSON array of deleted cadence date strings (YYYY-MM-DD)
+  created_at            DateTime       @default(now())
+
+  brand                 Brand?         @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+  workflow_tasks        WorkflowTask[]
+  misc_tasks            MiscTask[]
+  content_items         ContentItem[]
+  ideas                 IdeaBank[]
+
+  @@unique([brand_id, name])
+  @@index([brand_id])
+  @@map("content_types")
+}
+
+// Sequential workflow steps (Ideation -> Script -> Shoot -> Edit -> Schedule -> Publish)
+model WorkflowTask {
+  id                    String       @id @default(cuid())
+  content_type_id       String
+  task_name             String
+  sequence_order        Int
+  n_days_offset         Int          @default(1) // Duration needed (n days)
+  team_buffer_days      Int          @default(0) // Team 1st submission deadline buffer offset
+  team_final_buffer_days Int         @default(0) // Team final submission deadline buffer offset
+  is_hidden             Boolean      @default(false)
+  color                 String?      // Custom color / style token
+  update_mode           String       @default("manual") // "manual" | "automatic"
+  automation_trigger    String?      // "script_studio" | "drive_raw_footage" | "content_submission"
+  automation_role_id    String?      // Specific Role ID whose submission triggers this automation
+  require_closure_link  Boolean      @default(false)
+  durationMins          Int          @default(60)
+  setupBufferMins       Int          @default(15)
+  isSplittable          Boolean      @default(false)
+  minSplitChunkMins     Int          @default(30)
+  resistance            String       @default("MEDIUM") // "LOW" | "MEDIUM" | "HIGH"
+  eligibleZoneIds       String       @default("[]") // JSON array of ScheduleZone IDs for 'OR' placement logic
+
+  content_type          ContentType  @relation(fields: [content_type_id], references: [id], onDelete: Cascade)
+
+  @@index([content_type_id])
+  @@map("workflow_tasks")
+}
+
+// Non-sequential checklist tasks (Thumbnail Design, Title Variations, etc.)
+model MiscTask {
+  id                    String       @id @default(cuid())
+  content_type_id       String
+  task_name             String
+  durationMins          Int          @default(30)
+  setupBufferMins       Int          @default(0)
+  isSplittable          Boolean      @default(false)
+  minSplitChunkMins     Int          @default(15)
+  resistance            String       @default("LOW") // "LOW" | "MEDIUM" | "HIGH"
+  eligibleZoneIds       String       @default("[]") // JSON array of ScheduleZone IDs for 'OR' placement logic
+
+  content_type          ContentType  @relation(fields: [content_type_id], references: [id], onDelete: Cascade)
+
+  @@index([content_type_id])
+  @@map("misc_tasks")
+}
+
+// -------------------------------------------------------------
+// 3. Content Items (Matrix Tracker Placeholders)
+// -------------------------------------------------------------
+model ContentItem {
+  id                    String         @id @default(cuid())
+  unique_content_id     String?        @unique // e.g., "SH-2610001" or "101"
+  content_type_id       String?
+  brand_id              String?
+  title                 String?
+  excerpt               String?        // Mandatory premise/excerpt shown when clicking Title in Idea Bank
+  idea_status           String?        // Free-text custom status entered by the user
+  is_in_idea_bank       Boolean        @default(false)
+  is_pinned             Boolean        @default(false) // Pins idea to top of Idea Bank table
+  ideation_date         DateTime?
+  publish_date          DateTime?
+  is_archived           Boolean        @default(false)
+  is_manual_publish_date Boolean       @default(false)
+  remarks               String?
+  published_url         String?
+  custom_action_items   String         @default("[]") // JSON array: [{ id: string, text: string, is_closed: boolean }]
+  misc_tasks_status     String         @default("[]") // JSON array: [{ task_name: string, is_done: boolean }]
+  drive_folders         String         @default("{}") // JSON: { main_folder_id, main_folder_url, raw_footage_id, raw_footage_url, b_roll_id, b_roll_url, submissions_id, submissions_url, final_exports_id, final_exports_url }
+  raw_assets            String         @default("[]") // JSON: [{ id, name, file_url, drive_file_id, size_bytes, folder_type, uploaded_at }]
+  raw_footage_uploaded  Boolean        @default(false)
+  created_at            DateTime       @default(now())
+
+  content_type          ContentType?   @relation(fields: [content_type_id], references: [id], onDelete: Cascade)
+  brand                 Brand?         @relation(fields: [brand_id], references: [id], onDelete: SetNull)
+  task_instances        TaskInstance[]
+  script                Script?
+  submissions           Submission[]
+
+  @@index([content_type_id])
+  @@index([publish_date])
+  @@index([is_in_idea_bank, is_pinned])
+  @@index([brand_id])
+  @@map("content_items")
+}
+
+// -------------------------------------------------------------
+// 4. Task Instances (4-State Lifecycle Per Row)
+// -------------------------------------------------------------
+model TaskInstance {
+  id                    String       @id @default(cuid())
+  content_item_id       String
+  task_name             String
+  status                String       @default("not_done") // "not_done" | "under_review" | "revision_needed" | "done"
+  target_date_worst_case DateTime?
+  target_date_team      DateTime?
+  completed_at          DateTime?
+
+  content_item          ContentItem  @relation(fields: [content_item_id], references: [id], onDelete: Cascade)
+
+  @@index([content_item_id])
+  @@index([status])
+  @@map("task_instances")
+}
+
+// -------------------------------------------------------------
+// 5. Scripts Workspace (/scripts/[content-id])
+// -------------------------------------------------------------
+model Script {
+  id                    String       @id @default(cuid())
+  content_item_id       String       @unique
+  status                String       @default("pending") // "pending" | "submitted" | "revision_requested" | "done"
+  columns_schema        String       @default("[]") // JSON array of custom column overrides
+  rows_data             String       @default("[]") // JSON array: [{ sr_no, dialogue, roll, description, remarks }]
+  custom_notes          String?      // Rich text / scratchpad notes
+  canvas_drawings       String?      // Canvas drawing vector / stroke data
+  media_attachments     String       @default("[]") // JSON array: [{ id, name, data_url, created_at }]
+  comments              String       @default("[]") // JSON array: [{ id, sr_no, author_email, category, severity, body, is_resolved, created_at }]
+  created_at            DateTime     @default(now())
+  updated_at            DateTime     @default(now()) @updatedAt
+
+  content_item          ContentItem  @relation(fields: [content_item_id], references: [id], onDelete: Cascade)
+
+  @@map("scripts")
+}
+
+// -------------------------------------------------------------
+// 6. Submissions & Multi-Modal Comments
+// -------------------------------------------------------------
+model Submission {
+  id                    String       @id @default(cuid())
+  content_item_id       String
+  task_name             String
+  version               String       // "V1", "V2", "V3", etc.
+  file_url              String?
+  file_name             String?
+  file_size_bytes       Float?       @default(0)
+  file_type             String?      @default("video") // "video" | "image"
+  preview_url           String?
+  drive_file_id         String?
+  submitted_by_role_id  String?
+  status                String       @default("pending") // "pending" | "rejected" | "approved"
+  created_at            DateTime     @default(now())
+
+  content_item          ContentItem  @relation(fields: [content_item_id], references: [id], onDelete: Cascade)
+  submitted_by          Role?        @relation(fields: [submitted_by_role_id], references: [id], onDelete: SetNull)
+  comments              Comment[]
+
+  @@index([content_item_id])
+  @@map("submissions")
+}
+
+model Comment {
+  id                    String       @id @default(cuid())
+  submission_id         String
+  author_email          String
+  timestamp_seconds     Float?       // Timestamp in seconds for video submissions
+  marker_x              Float?       // Percentage 0-100 for image pin / mark
+  marker_y              Float?       // Percentage 0-100 for image pin / mark
+  category              String?      // "Pacing", "Audio", "B-Roll", "Typography", "Retention Hook", "Brand SOP Miss"
+  severity              String       @default("minor") // "minor" | "critical"
+  body                  String
+  is_resolved           Boolean      @default(false)
+  created_at            DateTime     @default(now())
+
+  submission            Submission   @relation(fields: [submission_id], references: [id], onDelete: Cascade)
+
+  @@index([submission_id])
+  @@map("comments")
+}
+
+// -------------------------------------------------------------
+// 7. Idea Bank (Generic & Content-Series Specific Ideas)
+// -------------------------------------------------------------
+model IdeaBank {
+  id                    String       @id @default(cuid())
+  brand_id              String?
+  content_type_id       String?      // null indicates a generic idea usable across any series
+  title                 String
+  notes                 String?
+  is_assigned           Boolean      @default(false)
+
+  brand                 Brand?       @relation(fields: [brand_id], references: [id], onDelete: SetNull)
+  content_type          ContentType? @relation(fields: [content_type_id], references: [id], onDelete: SetNull)
+
+  @@index([brand_id])
+  @@index([content_type_id])
+  @@map("idea_bank")
+}
+
+// -------------------------------------------------------------
+// 8. Creator Global Settings
+// -------------------------------------------------------------
+model CreatorSettings {
+  id                         String   @id @default("default")
+  default_months_open        Int      @default(3) // 1, 2, 3, 4, 5, or 6
+  default_id_generation_type String   @default("date_counter") // "sequential" | "date_counter"
+  default_theme              String   @default("theme-industrial")
+  feedback_categories        String   @default("[\"Pacing / Dead Air\",\"Audio / SFX\",\"B-Roll / Visuals\",\"Typography\",\"Retention Hook\",\"SOP Miss\"]")
+  drive_refresh_token        String?
+  updated_at                 DateTime @updatedAt
+
+  @@map("creator_settings")
+}
+
+// -------------------------------------------------------------
+// 9. Flexible PWS-Powered Scheduling System
+// -------------------------------------------------------------
+model ScheduleZone {
+  id          String           @id @default(cuid())
+  userId      String           @default("creator")
+  name        String
+  color       String
+  icon        String           @default("Briefcase")
+  orderIndex  Int              @default(0)
+
+  weeklySlots WeeklyZoneSlot[]
+
+  @@index([userId])
+  @@map("schedule_zones")
+}
+
+model WeeklyZoneSlot {
+  id          String       @id @default(cuid())
+  userId      String       @default("creator")
+  zoneId      String
+  dayOfWeek   Int          // 0 = MON ... 6 = SUN
+  startMinute Int          // 0..1440 (e.g. 540 = 09:00)
+  endMinute   Int
+
+  zone        ScheduleZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dayOfWeek])
+  @@index([zoneId])
+  @@map("weekly_zone_slots")
+}
+
+model WeeklyDayBounds {
+  id              String @id @default(cuid())
+  userId          String @default("creator")
+  dayOfWeek       Int    // 0 = MON ... 6 = SUN
+  workStartMinute Int    @default(480)  // 08:00 default: 0..workStartMinute is Top NO WORK ZONE
+  workEndMinute   Int    @default(1080) // 18:00 default: workEndMinute..1440 is Bottom NO WORK ZONE
+
+  @@unique([userId, dayOfWeek])
+  @@index([userId])
+  @@map("weekly_day_bounds")
+}
+
+model CalendarDateOverride {
+  id              String  @id @default(cuid())
+  userId          String  @default("creator")
+  dateString      String  // "YYYY-MM-DD"
+  isHoliday       Boolean @default(false)
+  holidayLabel    String?
+  customSlotsJson String? // Optional JSON override of slots for partial days or overtime
+
+  @@unique([userId, dateString])
+  @@map("calendar_date_overrides")
+}
+
+model PersonalTodo {
+  id                String   @id @default(cuid())
+  userId            String   @default("creator")
+  title             String
+  durationMins      Int      @default(30)
+  setupBufferMins   Int      @default(0)
+  resistance        String   @default("LOW")
+  isSplittable      Boolean  @default(false)
+  minSplitChunkMins Int      @default(15)
+  eligibleZoneIds   String   @default("[]") // JSON array of ScheduleZone IDs ('OR' logic)
+  targetDate        String?  // "YYYY-MM-DD"
+  status            String   @default("pending") // "pending" | "done"
+  createdAt         DateTime @default(now())
+
+  @@index([userId, status])
+  @@map("personal_todos")
+}
+
+model ScheduledAllocation {
+  id                     String  @id @default(cuid())
+  userId                 String  @default("creator")
+  sourceType             String  // "workflow_task" | "misc_task" | "action_item" | "personal_todo"
+  sourceId               String  // ID of TaskInstance, MiscTaskInstance, ActionItem, or PersonalTodo
+  dateString             String  // "YYYY-MM-DD"
+  startMinute            Int
+  endMinute              Int
+  setupMinsUsed          Int     @default(0)
+  zoneId                 String
+  isPinned               Boolean @default(false)
+  isVacationPreScheduled Boolean @default(false)
+  originalTargetDate     String?
+
+  @@index([userId, dateString])
+  @@index([sourceType, sourceId])
+  @@map("scheduled_allocations")
+}
