@@ -111,20 +111,20 @@ const inFlightDriveFolderOperations = new Map<string, Promise<DriveFolders>>();
 
 /**
  * Ensures or creates the structured folder hierarchy:
- * /Creator Register App/[ContentType]/[ContentID - VideoTitle]/
+ * /ContentPipe/[Brand]/[Content Series]/[ContentID - VideoTitle]/
  *   └── [Generated Default Folder Architecture...]
  *
- * Whenever a new Content ID folder is created, its Content Type's
- * default folder architecture is automatically provisioned inside the project folder.
+ * (If brandName is omitted, nests directly under /ContentPipe/[ContentType]/[ContentID - VideoTitle]/)
  */
 export async function ensureContentDriveFolders(
   contentTypeName: string,
   contentId: string,
   title: string,
   existingFolders?: DriveFolders | null,
-  folderArchitecture?: FolderArchitectureItem[] | string[] | string | null
+  folderArchitecture?: FolderArchitectureItem[] | string[] | string | null,
+  brandName?: string | null
 ): Promise<DriveFolders> {
-  const dedupeKey = `${contentTypeName}::${contentId || "item"}`;
+  const dedupeKey = `${brandName || ""}::${contentTypeName}::${contentId || "item"}`;
   if (inFlightDriveFolderOperations.has(dedupeKey)) {
     return inFlightDriveFolderOperations.get(dedupeKey)!;
   }
@@ -136,7 +136,8 @@ export async function ensureContentDriveFolders(
         contentId,
         title,
         existingFolders,
-        folderArchitecture
+        folderArchitecture,
+        brandName
       );
     } finally {
       inFlightDriveFolderOperations.delete(dedupeKey);
@@ -152,7 +153,8 @@ async function executeEnsureContentDriveFolders(
   contentId: string,
   title: string,
   existingFolders?: DriveFolders | null,
-  folderArchitecture?: FolderArchitectureItem[] | string[] | string | null
+  folderArchitecture?: FolderArchitectureItem[] | string[] | string | null,
+  brandName?: string | null
 ): Promise<DriveFolders> {
   // Normalize default folder architecture definitions
   let normalizedArch: FolderArchitectureItem[] = [];
@@ -236,13 +238,20 @@ async function executeEnsureContentDriveFolders(
     if (hasRealMainFolder) {
       projectFolderId = existingFolders!.main_folder_id!;
     } else {
-      // 1. Root Folder: "Creator Register App"
-      const rootFolderId = await findOrCreateFolder(drive, "Creator Register App");
+      // 1. Root Folder: "ContentPipe"
+      const rootFolderId = await findOrCreateFolder(drive, "ContentPipe");
 
-      // 2. Content Type Subfolder (e.g. "Long-Form" or "Shorts")
-      const typeFolderId = await findOrCreateFolder(drive, contentTypeName, rootFolderId);
+      // 2. Optional Brand Subfolder: "ContentPipe / [Brand]"
+      let parentForSeriesId = rootFolderId;
+      const cleanBrand = brandName?.trim();
+      if (cleanBrand) {
+        parentForSeriesId = await findOrCreateFolder(drive, cleanBrand, rootFolderId);
+      }
 
-      // 3. Project Folder: "[ContentID] - [Title]"
+      // 3. Content Series Subfolder (e.g. "Long-Form" or "Shorts")
+      const typeFolderId = await findOrCreateFolder(drive, contentTypeName, parentForSeriesId);
+
+      // 4. Project Folder: "[ContentID] - [Title]"
       projectFolderId = await findOrCreateFolder(drive, folderTitle, typeFolderId);
     }
 

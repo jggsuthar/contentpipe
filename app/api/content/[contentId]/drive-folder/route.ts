@@ -25,7 +25,12 @@ export async function POST(
         OR: [{ unique_content_id: contentId }, { id: contentId }],
       },
       include: {
-        content_type: true,
+        brand: { select: { name: true } },
+        content_type: {
+          include: {
+            brand: { select: { name: true } },
+          },
+        },
       },
     });
 
@@ -46,7 +51,8 @@ export async function POST(
         contentItem.unique_content_id || contentItem.id,
         contentItem.title || "Untitled Video",
         driveFolders,
-        contentItem.content_type?.default_folder_architecture || null
+        contentItem.content_type?.default_folder_architecture || null,
+        contentItem.content_type?.brand?.name || contentItem.brand?.name || null
       );
       await (prisma.contentItem as any).update({
         where: { id: contentItem.id },

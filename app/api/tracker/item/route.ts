@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
     const contentType = await prisma.contentType.findUnique({
       where: { id: content_type_id },
       include: {
+        brand: { select: { name: true } },
         workflow_tasks: {
           orderBy: { sequence_order: "asc" },
         },
@@ -236,6 +237,7 @@ export async function POST(req: NextRequest) {
 
       // Provision Google Drive folders in the background after returning response immediately
       if (!existingItem.unique_content_id && assignedId) {
+        const brandName = contentType.brand?.name || null;
         const seriesName = contentType.name;
         const folderArch = contentType.default_folder_architecture;
         const targetItemId = updated.id;
@@ -249,7 +251,8 @@ export async function POST(req: NextRequest) {
               targetUniqueId,
               targetTitle,
               null,
-              folderArch
+              folderArch,
+              brandName
             );
             if (driveFolders?.main_folder_id) {
               await prisma.contentItem.update({
@@ -294,6 +297,7 @@ export async function POST(req: NextRequest) {
 
     // Provision Google Drive folder architecture in background so UI responds instantly
     const createdId = created.id;
+    const brandName = contentType.brand?.name || null;
     const seriesName = contentType.name;
     const folderArch = contentType.default_folder_architecture;
 
@@ -304,7 +308,8 @@ export async function POST(req: NextRequest) {
           nextUniqueId,
           cleanTitle,
           null,
-          folderArch
+          folderArch,
+          brandName
         );
         if (driveFolders?.main_folder_id) {
           await prisma.contentItem.update({

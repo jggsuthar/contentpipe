@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     const contentType = await prisma.contentType.findUnique({
       where: { id: content_type_id },
       include: {
+        brand: { select: { name: true } },
         workflow_tasks: {
           orderBy: { sequence_order: "asc" },
         },
@@ -189,6 +190,7 @@ export async function POST(req: NextRequest) {
       const targetId = created.id;
       const targetUniqueId = assignedId;
       const targetTitle = cleanTitle;
+      const brandName = contentType.brand?.name || null;
       const seriesName = contentType.name;
       const folderArch = contentType.default_folder_architecture;
 
@@ -199,7 +201,8 @@ export async function POST(req: NextRequest) {
             targetUniqueId,
             targetTitle,
             null,
-            folderArch
+            folderArch,
+            brandName
           );
           if (driveFolders?.main_folder_id) {
             await prisma.contentItem.update({
@@ -390,6 +393,7 @@ export async function PATCH(req: NextRequest) {
     const contentType = await prisma.contentType.findUnique({
       where: { id: content_type_id },
       include: {
+        brand: { select: { name: true } },
         workflow_tasks: {
           orderBy: { sequence_order: "asc" },
         },

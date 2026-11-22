@@ -187,7 +187,8 @@ export async function GET(
       contentItem.unique_content_id || contentItem.id,
       contentItem.title || "Untitled Video",
       existingFolders,
-      contentItem.content_type?.default_folder_architecture || null
+      contentItem.content_type?.default_folder_architecture || null,
+      contentItem.content_type?.brand?.name || contentItem.brand?.name || null
     );
 
     // Persist folder IDs if newly created or if folder architecture has expanded

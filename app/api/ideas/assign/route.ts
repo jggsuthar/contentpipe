@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
     const contentType = await prisma.contentType.findUnique({
       where: { id: content_type_id },
       include: {
+        brand: { select: { name: true } },
         workflow_tasks: {
           orderBy: { sequence_order: "asc" },
         },
@@ -552,6 +553,7 @@ export async function POST(req: NextRequest) {
       const targetId = savedItem.id;
       const targetUniqueId = savedItem.unique_content_id;
       const targetTitle = savedItem.title || "Untitled Video";
+      const brandName = contentType.brand?.name || null;
       const seriesName = contentType.name;
       const folderArch = contentType.default_folder_architecture;
 
@@ -562,7 +564,8 @@ export async function POST(req: NextRequest) {
             targetUniqueId,
             targetTitle,
             null,
-            folderArch
+            folderArch,
+            brandName
           );
           if (driveFolders?.main_folder_id) {
             await prisma.contentItem.update({

@@ -2713,7 +2713,7 @@ export function ContentTypesTab() {
                   <div className="text-foreground font-semibold flex items-center gap-1">
                     <Folder className="w-3 h-3 text-amber-500" />
                     <span>
-                      Google Drive / Creator Register App /{" "}
+                      Google Drive / ContentPipe /{" "}
                       {selectedBrand ? `${selectedBrand.name} / ` : ""}
                       {selectedType.name} /
                     </span>
