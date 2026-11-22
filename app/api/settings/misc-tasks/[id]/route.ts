@@ -17,31 +17,6 @@ export async function PUT(
     if (typeof body.task_name === "string" && body.task_name.trim()) {
       data.task_name = body.task_name.trim();
     }
-    if (body.durationMins !== undefined) {
-      data.durationMins = Math.max(5, Math.round(Number(body.durationMins) || 30));
-    }
-    if (body.setupBufferMins !== undefined) {
-      data.setupBufferMins = Math.max(0, Math.round(Number(body.setupBufferMins) || 0));
-    }
-    if (body.isSplittable !== undefined) {
-      data.isSplittable = Boolean(body.isSplittable);
-    }
-    if (body.minSplitChunkMins !== undefined) {
-      data.minSplitChunkMins = Math.max(5, Math.round(Number(body.minSplitChunkMins) || 15));
-    }
-    if (body.resistance !== undefined) {
-      const r = String(body.resistance).toUpperCase();
-      if (r === "LOW" || r === "MEDIUM" || r === "HIGH") {
-        data.resistance = r;
-      }
-    }
-    if (body.eligibleZoneIds !== undefined) {
-      data.eligibleZoneIds = Array.isArray(body.eligibleZoneIds)
-        ? JSON.stringify(body.eligibleZoneIds.filter((z: unknown) => typeof z === "string"))
-        : typeof body.eligibleZoneIds === "string"
-        ? body.eligibleZoneIds
-        : "[]";
-    }
 
     const updated = await prisma.miscTask.update({
       where: { id },

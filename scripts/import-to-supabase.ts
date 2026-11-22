@@ -108,42 +108,6 @@ async function main() {
       skipDuplicates: true,
     });
   }
-  if (data.scheduleZones?.length) {
-    await prisma.scheduleZone.createMany({
-      data: data.scheduleZones,
-      skipDuplicates: true,
-    });
-  }
-  if (data.weeklyZoneSlots?.length) {
-    await prisma.weeklyZoneSlot.createMany({
-      data: data.weeklyZoneSlots,
-      skipDuplicates: true,
-    });
-  }
-  if (data.weeklyDayBounds?.length) {
-    await prisma.weeklyDayBounds.createMany({
-      data: data.weeklyDayBounds,
-      skipDuplicates: true,
-    });
-  }
-  if (data.calendarDateOverrides?.length) {
-    await prisma.calendarDateOverride.createMany({
-      data: data.calendarDateOverrides,
-      skipDuplicates: true,
-    });
-  }
-  if (data.personalTodos?.length) {
-    await prisma.personalTodo.createMany({
-      data: hydrateDates(data.personalTodos, ["createdAt"]),
-      skipDuplicates: true,
-    });
-  }
-  if (data.scheduledAllocations?.length) {
-    await prisma.scheduledAllocation.createMany({
-      data: data.scheduledAllocations,
-      skipDuplicates: true,
-    });
-  }
 
   console.log("Supabase import completed successfully!");
   console.log({
@@ -152,8 +116,6 @@ async function main() {
     contentTypes: await prisma.contentType.count(),
     contentItems: await prisma.contentItem.count(),
     scripts: await prisma.script.count(),
-    scheduleZones: await prisma.scheduleZone.count(),
-    scheduledAllocations: await prisma.scheduledAllocation.count(),
   });
 }
 

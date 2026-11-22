@@ -53,9 +53,10 @@ export default function TermsOfServicePage() {
             </h2>
             <p>
               Authorized users must only access Content Series, Scripts,
-              Schedules, and connected Google Drive folders permitted by their
-              assigned role. You are responsible for safeguarding your Google
-              account credentials and any activity performed under your session.
+              Production Boards, and connected Google Drive folders permitted by
+              their assigned role. You are responsible for safeguarding your
+              Google account credentials and any activity performed under your
+              session.
             </p>
           </section>
 
@@ -65,9 +66,8 @@ export default function TermsOfServicePage() {
             </h2>
             <p>
               You and your organization retain all ownership rights to scripts,
-              notes, schedules, thumbnails, video files, and production assets
-              managed through ContentPipe or stored in your connected Google
-              Drive. You grant ContentPipe permission only to display, organize,
+              notes, thumbnails, video files, and production assets managed
+              through ContentPipe or stored in your connected Google Drive. You grant ContentPipe permission only to display, organize,
               and sync those assets inside the workspace on your behalf.
             </p>
           </section>

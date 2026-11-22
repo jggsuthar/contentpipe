@@ -21,12 +21,6 @@ async function main() {
     comments: await prisma.comment.findMany(),
     ideaBank: await prisma.ideaBank.findMany(),
     creatorSettings: await prisma.creatorSettings.findMany(),
-    scheduleZones: await prisma.scheduleZone.findMany(),
-    weeklyZoneSlots: await prisma.weeklyZoneSlot.findMany(),
-    weeklyDayBounds: await prisma.weeklyDayBounds.findMany(),
-    calendarDateOverrides: await prisma.calendarDateOverride.findMany(),
-    personalTodos: await prisma.personalTodo.findMany(),
-    scheduledAllocations: await prisma.scheduledAllocation.findMany(),
   };
 
   const outPath = path.join(process.cwd(), "prisma", "sqlite-export.json");

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyPermission } from "@/lib/api-guard";
 import { ensureDefaultBrandAndBackfill } from "@/lib/brand-helpers";
-import { serializeWorkflowTask } from "@/lib/schedule-seed";
 
 async function handleUpdate(
   req: NextRequest,
@@ -167,7 +166,6 @@ async function handleUpdate(
       default_folder_architecture: updated.default_folder_architecture
         ? JSON.parse(updated.default_folder_architecture)
         : [{ id: "fld_raw", name: "Raw_Footage", parent_id: null }],
-      workflow_tasks: updated.workflow_tasks.map(serializeWorkflowTask),
     });
   } catch (error) {
     console.error("Error updating content series:", error);

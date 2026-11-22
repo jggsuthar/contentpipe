@@ -67,7 +67,7 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>
                 <strong className="text-foreground">Workspace Content:</strong>{" "}
-                Scripts, notes, production schedules, task statuses, and review
+                Scripts, notes, production pipelines, task statuses, and review
                 comments created inside ContentPipe.
               </li>
             </ul>

@@ -398,20 +398,6 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Remove ScheduledAllocations tied to old item's TaskInstances or virtual IDs
-        const oldTaskIds = collidingItem.task_instances.map((ti) => ti.id);
-        await prisma.scheduledAllocation.deleteMany({
-          where: {
-            OR: [
-              ...(oldTaskIds.length > 0
-                ? [{ sourceId: { in: oldTaskIds } }]
-                : []),
-              { sourceId: { startsWith: `virtual:${collidingItem.id}:` } },
-              { sourceId: { startsWith: `${collidingItem.id}::` } },
-            ],
-          },
-        });
-
         // Delete old ContentItem (cascades TaskInstance, Script, Submission, Comment)
         await prisma.contentItem.delete({
           where: { id: collidingItem.id },

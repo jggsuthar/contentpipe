@@ -11,7 +11,7 @@ import {
   Lock,
   FolderKanban,
   FileText,
-  CalendarClock,
+  CheckCircle2,
   AlertTriangle,
   Loader2,
 } from "lucide-react";
@@ -110,7 +110,7 @@ export default function HomePage() {
           </h1>
 
           <p className="text-sm sm:text-base text-muted-foreground max-w-md leading-relaxed mb-6">
-            Internal video production tracker, script studio, scheduling, and
+            Internal video production tracker, script studio, review hub, and
             Google Drive asset workspace built for our creator team.
           </p>
 
@@ -202,12 +202,12 @@ export default function HomePage() {
             </span>
           </div>
           <div className="card-theme rounded-2xl p-4 flex flex-col items-center gap-1.5">
-            <CalendarClock className="w-4 h-4 text-primary" />
+            <CheckCircle2 className="w-4 h-4 text-primary" />
             <span className="text-xs font-semibold text-foreground">
-              Team Scheduling
+              Review &amp; Approvals
             </span>
             <span className="text-[11px] text-muted-foreground">
-              Deadlines &amp; workload zones
+              Iterative cuts &amp; role-based feedback
             </span>
           </div>
         </section>

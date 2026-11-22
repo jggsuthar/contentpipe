@@ -9,7 +9,6 @@ import {
   Clapperboard,
   LayoutDashboard,
   Table,
-  CalendarClock,
   Sliders,
   HardDrive,
   User,
@@ -50,12 +49,6 @@ export function AppHeader() {
       href: "/tracker",
       icon: Table,
       active: pathname.startsWith("/tracker") || pathname.startsWith("/scripts") || pathname.startsWith("/content"),
-    },
-    {
-      label: "Schedule",
-      href: "/schedule",
-      icon: CalendarClock,
-      active: pathname.startsWith("/schedule"),
     },
     {
       label: isCreator ? "Settings" : "Preferences",
@@ -255,14 +248,6 @@ export function AppHeader() {
                   >
                     <Table className="w-3.5 h-3.5 text-muted-foreground" />
                     <span>Index (Production Matrix)</span>
-                  </Link>
-                  <Link
-                    href="/schedule"
-                    onClick={() => setDropdownOpen(false)}
-                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl hover:bg-muted/60 text-foreground transition-colors duration-200"
-                  >
-                    <CalendarClock className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>Schedule (PWS Timetable)</span>
                   </Link>
 
                   {isCreator ? (

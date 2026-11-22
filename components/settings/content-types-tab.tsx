@@ -14,15 +14,12 @@ import {
   Check,
   CheckSquare,
   AlertTriangle,
-  Clock,
   Calendar,
   Lock,
   ChevronRight,
   Loader2,
   X,
   Save,
-  Info,
-  GripVertical,
   Columns3,
   FolderTree,
   FolderPlus,
@@ -34,8 +31,6 @@ import {
 } from "lucide-react";
 import { getRoleConfigForContentType } from "@/lib/permissions";
 import { PublishDatesOrganizerModal } from "@/components/tracker/publish-dates-organizer-modal";
-import { PwsTaskMetadataControls } from "@/components/settings/pws-task-metadata-controls";
-import type { DbScheduleZone, ResistanceLevel } from "@/types/database";
 
 interface WorkflowTaskItem {
   id: string;
@@ -51,31 +46,16 @@ interface WorkflowTaskItem {
   automation_trigger?: "script_studio" | "drive_raw_footage" | "content_submission" | null;
   automation_role_id?: string | null;
   require_closure_link?: boolean;
-  durationMins: number;
-  setupBufferMins: number;
-  isSplittable: boolean;
-  minSplitChunkMins: number;
-  resistance: ResistanceLevel;
-  eligibleZoneIds: string[];
 }
 
-function normalizeTaskForEditor(task: Partial<Omit<WorkflowTaskItem, "eligibleZoneIds">> & { id: string; content_type_id: string; task_name: string; sequence_order: number; eligibleZoneIds?: string[] | string }): WorkflowTaskItem {
-  let zoneIds: string[] = [];
-  if (Array.isArray(task.eligibleZoneIds)) {
-    zoneIds = task.eligibleZoneIds;
-  } else if (typeof task.eligibleZoneIds === "string") {
-    try {
-      const parsed = JSON.parse(task.eligibleZoneIds);
-      if (Array.isArray(parsed)) zoneIds = parsed;
-    } catch {
-      zoneIds = [];
-    }
+function normalizeTaskForEditor(
+  task: Partial<WorkflowTaskItem> & {
+    id: string;
+    content_type_id: string;
+    task_name: string;
+    sequence_order: number;
   }
-
-  const resRaw = typeof task.resistance === "string" ? task.resistance.toUpperCase() : "MEDIUM";
-  const resistance: ResistanceLevel =
-    resRaw === "LOW" || resRaw === "MEDIUM" || resRaw === "HIGH" ? resRaw : "MEDIUM";
-
+): WorkflowTaskItem {
   return {
     id: task.id,
     content_type_id: task.content_type_id,
@@ -90,12 +70,6 @@ function normalizeTaskForEditor(task: Partial<Omit<WorkflowTaskItem, "eligibleZo
     automation_trigger: task.automation_trigger ?? null,
     automation_role_id: task.automation_role_id ?? null,
     require_closure_link: Boolean(task.require_closure_link),
-    durationMins: task.durationMins ?? 60,
-    setupBufferMins: task.setupBufferMins ?? 15,
-    isSplittable: Boolean(task.isSplittable),
-    minSplitChunkMins: task.minSplitChunkMins ?? 30,
-    resistance,
-    eligibleZoneIds: zoneIds,
   };
 }
 
@@ -103,39 +77,6 @@ interface MiscTaskItem {
   id: string;
   content_type_id: string;
   task_name: string;
-  durationMins?: number;
-  setupBufferMins?: number;
-  isSplittable?: boolean;
-  minSplitChunkMins?: number;
-  resistance?: ResistanceLevel | string;
-  eligibleZoneIds?: string[] | string;
-}
-
-function normalizeMiscTaskPws(misc: MiscTaskItem) {
-  let zoneIds: string[] = [];
-  if (Array.isArray(misc.eligibleZoneIds)) {
-    zoneIds = misc.eligibleZoneIds;
-  } else if (typeof misc.eligibleZoneIds === "string") {
-    try {
-      const parsed = JSON.parse(misc.eligibleZoneIds);
-      if (Array.isArray(parsed)) zoneIds = parsed;
-    } catch {
-      zoneIds = [];
-    }
-  }
-  const resRaw =
-    typeof misc.resistance === "string" ? misc.resistance.toUpperCase() : "LOW";
-  const resistance: ResistanceLevel =
-    resRaw === "LOW" || resRaw === "MEDIUM" || resRaw === "HIGH" ? resRaw : "LOW";
-
-  return {
-    durationMins: misc.durationMins ?? 30,
-    setupBufferMins: misc.setupBufferMins ?? 0,
-    isSplittable: Boolean(misc.isSplittable),
-    minSplitChunkMins: misc.minSplitChunkMins ?? 15,
-    resistance,
-    eligibleZoneIds: zoneIds,
-  };
 }
 
 export interface ScriptColumnDef {
@@ -164,9 +105,7 @@ export const FOLDER_ARCHITECTURE_PRESETS: {
   {
     name: "Minimal (Default)",
     description: "Single Raw Footage folder",
-    folders: [
-      { id: "fld_raw", name: "Raw_Footage", parent_id: null },
-    ],
+    folders: [{ id: "fld_raw", name: "Raw_Footage", parent_id: null }],
   },
   {
     name: "YouTube Standard",
@@ -311,12 +250,12 @@ export function getTaskColorInfo(taskName: string, customColor?: string | null) 
 }
 
 export const DEFAULT_TASK_HEX_COLORS: Record<string, string> = {
-  ideation: "#FFFF00", // Yellow (#FFFF00)
-  script: "#f97316",   // Orange (orange-500)
-  shoot: "#3b82f6",    // Blue (blue-500)
-  edit: "#84cc16",     // Light Green (lime-500)
-  schedule: "#10b981", // Green (emerald-500)
-  publish: "#6b7280",  // Gray (gray-500)
+  ideation: "#FFFF00",
+  script: "#f97316",
+  shoot: "#3b82f6",
+  edit: "#84cc16",
+  schedule: "#10b981",
+  publish: "#6b7280",
 };
 
 export const COLOR_ID_TO_HEX: Record<string, string> = {
@@ -423,7 +362,7 @@ export function CadenceUploadDaysPicker({
     const tag = numWeeks === 1 ? day : `W${weekNum}-${day}`;
 
     if (isSelected) {
-      if (uploadDays.length <= 1) return; // Keep at least one
+      if (uploadDays.length <= 1) return;
       const updated = uploadDays.filter((d) => {
         if (numWeeks === 1) {
           return d !== day && d !== `W1-${day}`;
@@ -469,8 +408,7 @@ export function CadenceUploadDaysPicker({
           return (
             <div
               key={weekNum}
-              className="p-2.5 rounded-md bg-muted/20 border border-border flex flex-col gap-2"
-              style={{ borderRadius: "var(--radius)" }}
+              className="p-2.5 rounded-xl bg-muted/20 border border-border flex flex-col gap-2"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono font-bold text-foreground flex items-center gap-1.5">
@@ -490,12 +428,11 @@ export function CadenceUploadDaysPicker({
                       key={day}
                       type="button"
                       onClick={() => toggleDay(weekNum, day)}
-                      className={`px-2 py-1 rounded text-[11px] font-mono border transition-all cursor-pointer ${
+                      className={`px-2 py-1 rounded-lg text-[11px] font-mono border transition-all cursor-pointer ${
                         active
                           ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
                           : "bg-background/80 text-muted-foreground border-border hover:bg-muted"
                       }`}
-                      style={{ borderRadius: "var(--radius)" }}
                       title={`${day} (Week ${weekNum})`}
                     >
                       {day.slice(0, 3)}
@@ -511,27 +448,54 @@ export function CadenceUploadDaysPicker({
   );
 }
 
+function formatCadenceSummary(selectedType: ContentTypeItem): string {
+  const numWeeks =
+    selectedType.cadence_type === "biweekly"
+      ? 2
+      : selectedType.cadence_type === "triweekly"
+      ? 3
+      : selectedType.cadence_type === "quadrupleweekly"
+      ? 4
+      : 1;
+
+  if (numWeeks === 1) {
+    const days = (selectedType.upload_days || ["Tuesday"]).map((d) =>
+      d.replace(/^W1-/i, "")
+    );
+    return days.join(", ") || "None";
+  }
+
+  const parts: string[] = [];
+  for (let w = 1; w <= numWeeks; w++) {
+    const days = (selectedType.upload_days || [])
+      .filter((d) => d.toLowerCase().startsWith(`w${w}-`))
+      .map((d) => d.replace(new RegExp(`^w${w}-`, "i"), ""));
+    parts.push(`W${w}: ${days.length > 0 ? days.map((d) => d.slice(0, 3)).join(", ") : "None"}`);
+  }
+  return parts.join(" • ");
+}
+
 export function ContentTypesTab() {
   const [brands, setBrands] = useState<BrandItem[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [contentTypes, setContentTypes] = useState<ContentTypeItem[]>([]);
-  const [roles, setRoles] = useState<{
-    id: string;
-    name: string;
-    email: string;
-    role_title: string;
-    assigned_content_types: string[] | string;
-    permissions: any;
-  }[]>([]);
+  const [roles, setRoles] = useState<
+    {
+      id: string;
+      name: string;
+      email: string;
+      role_title: string;
+      assigned_content_types: string[] | string;
+      permissions: any;
+    }[]
+  >([]);
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-  const [scheduleZones, setScheduleZones] = useState<DbScheduleZone[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Pipeline Sequence Form State & Dirty Tracking
+  // Pipeline Sequence Form State & Unified Save State
   const [localTasks, setLocalTasks] = useState<WorkflowTaskItem[]>([]);
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Brand Modal & Form States
   const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
@@ -554,14 +518,13 @@ export function ContentTypesTab() {
   const [isEditTypeModalOpen, setIsEditTypeModalOpen] = useState(false);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [newMiscInput, setNewMiscInput] = useState("");
+  const [editingMiscId, setEditingMiscId] = useState<string | null>(null);
+  const [editingMiscName, setEditingMiscName] = useState("");
   const [typeFormError, setTypeFormError] = useState<string | null>(null);
 
   // Confirmation Modals
-  // Double Confirmation for Hiding
   const [hideConfirmTask, setHideConfirmTask] = useState<WorkflowTaskItem | null>(null);
   const [hideStep, setHideStep] = useState<1 | 2>(1);
-
-  // Triple Confirmation for Deleting Task
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<WorkflowTaskItem | null>(null);
   const [deleteStep, setDeleteStep] = useState<1 | 2 | 3>(1);
 
@@ -570,7 +533,9 @@ export function ContentTypesTab() {
   const [typeName, setTypeName] = useState("");
   const [typePrefix, setTypePrefix] = useState("");
   const [typeSuffix, setTypeSuffix] = useState("");
-  const [typeCadence, setTypeCadence] = useState<"weekly" | "biweekly" | "triweekly" | "quadrupleweekly">("weekly");
+  const [typeCadence, setTypeCadence] = useState<
+    "weekly" | "biweekly" | "triweekly" | "quadrupleweekly"
+  >("weekly");
   const [typeUploadDays, setTypeUploadDays] = useState<string[]>(["Tuesday"]);
   const [typeIdGen, setTypeIdGen] = useState<"sequential" | "date_counter">("date_counter");
 
@@ -584,22 +549,21 @@ export function ContentTypesTab() {
   const [newTaskBuffer1, setNewTaskBuffer1] = useState<number>(2);
   const [newTaskBufferFinal, setNewTaskBufferFinal] = useState<number>(1);
   const [newTaskColor, setNewTaskColor] = useState<string>("#3b82f6");
-  const [newTaskDurationMins, setNewTaskDurationMins] = useState<number>(60);
-  const [newTaskSetupBufferMins, setNewTaskSetupBufferMins] = useState<number>(15);
-  const [newTaskIsSplittable, setNewTaskIsSplittable] = useState<boolean>(false);
-  const [newTaskMinSplitChunkMins, setNewTaskMinSplitChunkMins] = useState<number>(30);
-  const [newTaskResistance, setNewTaskResistance] = useState<ResistanceLevel>("MEDIUM");
-  const [newTaskEligibleZoneIds, setNewTaskEligibleZoneIds] = useState<string[]>([]);
 
-  // Fetch all brands, content series, team roles, and schedule zones
-  const fetchContentTypes = async (preferredBrandId?: string | null, preferredTypeId?: string | null) => {
+  // Fetch all brands, content series, and team roles
+  const fetchContentTypes = async (
+    preferredBrandId?: string | null,
+    preferredTypeId?: string | null,
+    options?: { silent?: boolean }
+  ) => {
     try {
-      setLoading(true);
-      const [brandsRes, res, rolesRes, zonesRes] = await Promise.all([
+      if (!options?.silent) {
+        setLoading(true);
+      }
+      const [brandsRes, res, rolesRes] = await Promise.all([
         fetch("/api/settings/brands"),
         fetch("/api/settings/content-types"),
         fetch("/api/settings/roles"),
-        fetch("/api/schedule/zones"),
       ]);
 
       let fetchedBrands: BrandItem[] = [];
@@ -618,11 +582,6 @@ export function ContentTypesTab() {
       if (rolesRes.ok) {
         const rolesData = await rolesRes.json();
         setRoles(rolesData);
-      }
-
-      if (zonesRes.ok) {
-        const zonesData = await zonesRes.json();
-        setScheduleZones(zonesData.zones || []);
       }
 
       const targetBrandId =
@@ -720,7 +679,7 @@ export function ContentTypesTab() {
       }
       setIsNewBrandModalOpen(false);
       resetBrandForm();
-      await fetchContentTypes(data.id, null);
+      await fetchContentTypes(data.id, null, { silent: true });
     } catch (err) {
       console.error("Error creating brand:", err);
       setBrandFormError("Network error creating brand.");
@@ -753,7 +712,7 @@ export function ContentTypesTab() {
       }
       setIsEditBrandModalOpen(false);
       resetBrandForm();
-      await fetchContentTypes(selectedBrand.id, selectedType?.id || null);
+      await fetchContentTypes(selectedBrand.id, selectedType?.id || null, { silent: true });
     } catch (err) {
       console.error("Error updating brand:", err);
       setBrandFormError("Network error updating brand.");
@@ -795,7 +754,7 @@ export function ContentTypesTab() {
       setDeleteBrandError(null);
       setDeleteBrandNeedsConfirm(false);
       setDeleteBrandDriveData(false);
-      await fetchContentTypes(remainingBrand?.id || null, null);
+      await fetchContentTypes(remainingBrand?.id || null, null, { silent: true });
     } catch (err) {
       console.error("Error deleting brand:", err);
       setDeleteBrandError("Network error deleting brand.");
@@ -810,12 +769,14 @@ export function ContentTypesTab() {
     return roles.filter((role) => {
       let perms: any = {};
       try {
-        perms = typeof role.permissions === "string" ? JSON.parse(role.permissions) : role.permissions || {};
+        perms =
+          typeof role.permissions === "string"
+            ? JSON.parse(role.permissions)
+            : role.permissions || {};
       } catch {
         perms = {};
       }
 
-      // Check if role is assigned to this content series
       let assignedTypes: string[] = [];
       try {
         assignedTypes = Array.isArray(role.assigned_content_types)
@@ -833,13 +794,11 @@ export function ContentTypesTab() {
 
       if (!isAssigned) return false;
 
-      // Check if content_submission responsibility is enabled
       const config = getRoleConfigForContentType(perms, selectedType.id);
-      const isSubmissionResponsible =
+      return (
         config.responsibilities?.content_submission?.enabled === true ||
-        perms.responsibilities?.content_submission?.enabled === true;
-
-      return isSubmissionResponsible;
+        perms.responsibilities?.content_submission?.enabled === true
+      );
     });
   }, [roles, selectedType]);
 
@@ -873,7 +832,7 @@ export function ContentTypesTab() {
 
       setIsNewTypeModalOpen(false);
       resetTypeForm();
-      await fetchContentTypes(data.brand_id || targetBrandId || null, data.id);
+      await fetchContentTypes(data.brand_id || targetBrandId || null, data.id, { silent: true });
     } catch (err) {
       console.error("Error creating content series:", err);
       setTypeFormError("Network error creating content series.");
@@ -921,7 +880,7 @@ export function ContentTypesTab() {
         upload_days: typeUploadDays,
       };
       resetTypeForm();
-      await fetchContentTypes(targetBrandId || null, selectedType.id);
+      await fetchContentTypes(targetBrandId || null, selectedType.id, { silent: true });
 
       if (cadenceChanged) {
         setOrganizerTargetType(updatedTarget);
@@ -935,13 +894,18 @@ export function ContentTypesTab() {
 
   // Handler: Delete Content Series
   const handleDeleteContentType = async (typeId: string) => {
-    if (!confirm("Are you sure you want to delete this Content Series and all its workflow settings?")) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this Content Series and all its workflow settings?"
+      )
+    )
+      return;
     try {
       const res = await fetch(`/api/settings/content-types/${typeId}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        await fetchContentTypes(selectedBrand?.id || null, null);
+        await fetchContentTypes(selectedBrand?.id || null, null, { silent: true });
       }
     } catch (err) {
       console.error("Error deleting content series:", err);
@@ -958,8 +922,8 @@ export function ContentTypesTab() {
     }
   }, [selectedType?.id, selectedType?.workflow_tasks]);
 
-  // Compute dirty state: true only if changes exist compared to the saved database tasks
-  const isDirty = React.useMemo(() => {
+  // Compute workflow dirty state
+  const isWorkflowDirty = React.useMemo(() => {
     if (!selectedType?.workflow_tasks || localTasks.length === 0) return false;
     const original = [...selectedType.workflow_tasks]
       .sort((a, b) => a.sequence_order - b.sequence_order)
@@ -980,32 +944,21 @@ export function ContentTypesTab() {
         (task.update_mode || "manual") !== (orig.update_mode || "manual") ||
         (task.automation_trigger || null) !== (orig.automation_trigger || null) ||
         (task.automation_role_id || null) !== (orig.automation_role_id || null) ||
-        Boolean(task.require_closure_link) !== Boolean(orig.require_closure_link) ||
-        task.durationMins !== orig.durationMins ||
-        task.setupBufferMins !== orig.setupBufferMins ||
-        Boolean(task.isSplittable) !== Boolean(orig.isSplittable) ||
-        task.minSplitChunkMins !== orig.minSplitChunkMins ||
-        task.resistance !== orig.resistance ||
-        JSON.stringify(task.eligibleZoneIds) !== JSON.stringify(orig.eligibleZoneIds)
+        Boolean(task.require_closure_link) !== Boolean(orig.require_closure_link)
       );
     });
   }, [localTasks, selectedType?.workflow_tasks]);
 
-  // In-place local task updater (marks form as dirty)
-  const updateLocalTask = (
-    taskId: string,
-    partial: Partial<WorkflowTaskItem>
-  ) => {
+  const updateLocalTask = (taskId: string, partial: Partial<WorkflowTaskItem>) => {
     setLocalTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, ...partial } : t))
     );
   };
 
-  // Reorder task locally
   const moveLocalTask = (currentIndex: number, direction: "up" | "down") => {
-    if (currentIndex <= 0 || currentIndex >= localTasks.length - 1) return; // Cannot move Ideation or Publish
+    if (currentIndex <= 0 || currentIndex >= localTasks.length - 1) return;
     const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex <= 0 || targetIndex >= localTasks.length - 1) return; // Cannot swap with endpoints
+    if (targetIndex <= 0 || targetIndex >= localTasks.length - 1) return;
 
     setLocalTasks((prev) => {
       const next = [...prev];
@@ -1016,93 +969,6 @@ export function ContentTypesTab() {
     });
   };
 
-  // Drag and drop reordering handlers
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    if (index === 0 || index === localTasks.length - 1) {
-      e.preventDefault();
-      return;
-    }
-    setDraggedIndex(index);
-    e.dataTransfer.setData("text/plain", index.toString());
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    if (index === 0 || index === localTasks.length - 1) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === targetIndex) return;
-    if (targetIndex === 0 || targetIndex >= localTasks.length - 1) return;
-
-    setLocalTasks((prev) => {
-      const next = [...prev];
-      const [moved] = next.splice(draggedIndex, 1);
-      next.splice(targetIndex, 0, moved);
-      return next.map((t, idx) => ({ ...t, sequence_order: idx + 1 }));
-    });
-    setDraggedIndex(null);
-  };
-
-  // Global Save: Single primary button saves all pipeline changes atomically
-  const handleSaveAllWorkflowChanges = async () => {
-    if (!selectedType || !isDirty || isSavingAll) return;
-
-    try {
-      setIsSavingAll(true);
-      const res = await fetch("/api/settings/workflow-tasks", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content_type_id: selectedType.id,
-          tasks: localTasks.map((t, idx) => {
-            const isPublish = t.task_name.toLowerCase() === "publish";
-            return {
-              id: t.id,
-              task_name: t.task_name,
-              sequence_order: idx + 1,
-              n_days_offset: isPublish ? 0 : t.n_days_offset,
-              team_buffer_days: t.team_buffer_days,
-              team_final_buffer_days: t.team_final_buffer_days,
-              is_hidden: t.is_hidden,
-              color: t.color,
-              update_mode: isPublish ? "automatic" : (t.update_mode || "manual"),
-              automation_trigger: isPublish
-                ? "publish_rules"
-                : t.update_mode === "automatic"
-                ? (t.automation_trigger || "script_studio")
-                : null,
-              automation_role_id: !isPublish && t.update_mode === "automatic" && t.automation_trigger === "content_submission"
-                ? (t.automation_role_id || null)
-                : null,
-              require_closure_link: isPublish ? false : Boolean(t.require_closure_link),
-              durationMins: t.durationMins,
-              setupBufferMins: t.setupBufferMins,
-              isSplittable: t.isSplittable,
-              minSplitChunkMins: t.minSplitChunkMins,
-              resistance: t.resistance,
-              eligibleZoneIds: t.eligibleZoneIds,
-            };
-          }),
-        }),
-      });
-
-      if (res.ok) {
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 2500);
-        await fetchContentTypes();
-      }
-    } catch (err) {
-      console.error("Error saving workflow pipeline changes:", err);
-    } finally {
-      setIsSavingAll(false);
-    }
-  };
-
-  // Handler: Add Task
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedType || !newTaskName.trim()) return;
@@ -1118,33 +984,19 @@ export function ContentTypesTab() {
           team_buffer_days: newTaskBuffer1,
           team_final_buffer_days: newTaskBufferFinal,
           color: newTaskColor,
-          durationMins: newTaskDurationMins,
-          setupBufferMins: newTaskSetupBufferMins,
-          isSplittable: newTaskIsSplittable,
-          minSplitChunkMins: newTaskMinSplitChunkMins,
-          resistance: newTaskResistance,
-          eligibleZoneIds: newTaskEligibleZoneIds,
         }),
       });
 
       if (res.ok) {
         setIsNewTaskModalOpen(false);
         setNewTaskName("");
-        setNewTaskDurationMins(60);
-        setNewTaskSetupBufferMins(15);
-        setNewTaskIsSplittable(false);
-        setNewTaskMinSplitChunkMins(30);
-        setNewTaskResistance("MEDIUM");
-        setNewTaskEligibleZoneIds([]);
-        await fetchContentTypes();
+        await fetchContentTypes(selectedBrand?.id || null, selectedType.id, { silent: true });
       }
     } catch (err) {
       console.error("Error adding task:", err);
     }
   };
 
-
-  // Handler: Toggle Hide Task (Confirmed)
   const executeHideTask = async () => {
     if (!hideConfirmTask) return;
     try {
@@ -1157,13 +1009,14 @@ export function ContentTypesTab() {
       });
       setHideConfirmTask(null);
       setHideStep(1);
-      await fetchContentTypes();
+      await fetchContentTypes(selectedBrand?.id || null, selectedType?.id || null, {
+        silent: true,
+      });
     } catch (err) {
       console.error("Error toggling task hidden status:", err);
     }
   };
 
-  // Handler: Delete Task (Confirmed via Triple Step)
   const executeDeleteTask = async () => {
     if (!deleteConfirmTask) return;
     try {
@@ -1172,62 +1025,54 @@ export function ContentTypesTab() {
       });
       setDeleteConfirmTask(null);
       setDeleteStep(1);
-      await fetchContentTypes();
+      await fetchContentTypes(selectedBrand?.id || null, selectedType?.id || null, {
+        silent: true,
+      });
     } catch (err) {
       console.error("Error deleting task:", err);
     }
   };
 
-  // Handler: Add Misc Task
+  // Misc Checklist Task handlers (smooth optimistic updates + silent refresh)
   const handleAddMiscTask = async () => {
     if (!selectedType || !newMiscInput.trim()) return;
+    const taskName = newMiscInput.trim();
+    setNewMiscInput("");
     try {
-      await fetch("/api/settings/misc-tasks", {
+      const res = await fetch("/api/settings/misc-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content_type_id: selectedType.id,
-          task_name: newMiscInput.trim(),
+          task_name: taskName,
         }),
       });
-      setNewMiscInput("");
-      await fetchContentTypes();
+      if (res.ok) {
+        const created = await res.json();
+        setContentTypes((prev) =>
+          prev.map((ct) =>
+            ct.id === selectedType.id
+              ? { ...ct, misc_tasks: [...(ct.misc_tasks || []), created] }
+              : ct
+          )
+        );
+      }
     } catch (err) {
       console.error("Error adding misc task:", err);
     }
   };
 
-  // Handler: Delete Misc Task
-  const handleDeleteMiscTask = async (miscId: string) => {
-    try {
-      await fetch(`/api/settings/misc-tasks/${miscId}`, {
-        method: "DELETE",
-      });
-      await fetchContentTypes();
-    } catch (err) {
-      console.error("Error deleting misc task:", err);
-    }
-  };
-
-  // Handler: Update Misc Task PWS Metadata & Eligible Zones
-  const handleUpdateMiscTaskPws = async (
-    miscId: string,
-    partial: Partial<{
-      durationMins: number;
-      setupBufferMins: number;
-      isSplittable: boolean;
-      minSplitChunkMins: number;
-      resistance: ResistanceLevel;
-      eligibleZoneIds: string[];
-    }>
-  ) => {
+  const handleRenameMiscTask = async (miscId: string) => {
+    const trimmed = editingMiscName.trim();
+    setEditingMiscId(null);
+    if (!trimmed || !selectedType) return;
     setContentTypes((prev) =>
       prev.map((ct) =>
-        ct.id === selectedTypeId
+        ct.id === selectedType.id
           ? {
               ...ct,
-              misc_tasks: ct.misc_tasks?.map((m) =>
-                m.id === miscId ? { ...m, ...partial } : m
+              misc_tasks: (ct.misc_tasks || []).map((m) =>
+                m.id === miscId ? { ...m, task_name: trimmed } : m
               ),
             }
           : ct
@@ -1237,17 +1082,36 @@ export function ContentTypesTab() {
       await fetch(`/api/settings/misc-tasks/${miscId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(partial),
+        body: JSON.stringify({ task_name: trimmed }),
       });
     } catch (err) {
-      console.error("Error updating misc task PWS metadata:", err);
+      console.error("Error renaming misc task:", err);
+    }
+  };
+
+  const handleDeleteMiscTask = async (miscId: string) => {
+    if (!selectedType) return;
+    setContentTypes((prev) =>
+      prev.map((ct) =>
+        ct.id === selectedType.id
+          ? {
+              ...ct,
+              misc_tasks: (ct.misc_tasks || []).filter((m) => m.id !== miscId),
+            }
+          : ct
+      )
+    );
+    try {
+      await fetch(`/api/settings/misc-tasks/${miscId}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.error("Error deleting misc task:", err);
     }
   };
 
   // Script Default Columns States & Handlers
   const [scriptColumns, setScriptColumns] = useState<ScriptColumnDef[]>([]);
-  const [isSavingScriptCols, setIsSavingScriptCols] = useState(false);
-  const [scriptColsSaved, setScriptColsSaved] = useState(false);
   const [newOptionInputs, setNewOptionInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -1258,7 +1122,9 @@ export function ContentTypesTab() {
         selectedType.script_default_columns.length > 0
       ) {
         setScriptColumns(
-          selectedType.script_default_columns.filter((c) => c.id !== "col_sr" && c.id !== "sr_no")
+          selectedType.script_default_columns.filter(
+            (c) => c.id !== "col_sr" && c.id !== "sr_no"
+          )
         );
       } else {
         setScriptColumns(DEFAULT_SCRIPT_COL_DEFS);
@@ -1349,35 +1215,8 @@ export function ContentTypesTab() {
     );
   };
 
-  const handleSaveScriptColumns = async () => {
-    if (!selectedType || isSavingScriptCols) return;
-    setIsSavingScriptCols(true);
-    try {
-      const res = await fetch(`/api/settings/content-types/${selectedType.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          script_default_columns: scriptColumns,
-        }),
-      });
-      if (res.ok) {
-        setScriptColsSaved(true);
-        setTimeout(() => setScriptColsSaved(false), 2500);
-        await fetchContentTypes();
-      }
-    } catch (err) {
-      console.error("Error saving script default columns:", err);
-    } finally {
-      setIsSavingScriptCols(false);
-    }
-  };
-
-  // -------------------------------------------------------------
   // Default Content Folder Architecture State & Handlers
-  // -------------------------------------------------------------
   const [folderArchitecture, setFolderArchitecture] = useState<FolderArchitectureItem[]>([]);
-  const [isSavingFolderArch, setIsSavingFolderArch] = useState(false);
-  const [folderArchSaved, setFolderArchSaved] = useState(false);
   const [newTopFolderInput, setNewTopFolderInput] = useState("");
 
   useEffect(() => {
@@ -1396,7 +1235,8 @@ export function ContentTypesTab() {
 
   const handleAddTopFolder = (customName?: string) => {
     const rawName = (customName || newTopFolderInput || "New_Folder").trim();
-    const cleanName = rawName.replace(/[\/\\:*?"<>|]/g, "_") || `Folder_${folderArchitecture.length + 1}`;
+    const cleanName =
+      rawName.replace(/[\/\\:*?"<>|]/g, "_") || `Folder_${folderArchitecture.length + 1}`;
     const newFolder: FolderArchitectureItem = {
       id: `fld_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name: cleanName,
@@ -1417,9 +1257,8 @@ export function ContentTypesTab() {
     setFolderArchitecture((prev) => {
       const parentIdx = prev.findIndex((f) => f.id === parentId);
       if (parentIdx === -1) return [...prev, newFolder];
-      const nextIdx = parentIdx + 1;
       const copy = [...prev];
-      copy.splice(nextIdx, 0, newFolder);
+      copy.splice(parentIdx + 1, 0, newFolder);
       return copy;
     });
   };
@@ -1454,7 +1293,6 @@ export function ContentTypesTab() {
       ...f,
       id: `fld_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     }));
-    // Remap parent_ids to cloned IDs
     const idMap: Record<string, string> = {};
     presetFolders.forEach((orig, i) => {
       idMap[orig.id] = cloned[i].id;
@@ -1467,26 +1305,132 @@ export function ContentTypesTab() {
     setFolderArchitecture(cloned);
   };
 
-  const handleSaveFolderArchitecture = async () => {
-    if (!selectedType || isSavingFolderArch) return;
-    setIsSavingFolderArch(true);
+  // Compute dirty state for Script Columns & Folder Architecture
+  const isScriptColsDirty = React.useMemo(() => {
+    if (!selectedType) return false;
+    const savedCols =
+      selectedType.script_default_columns &&
+      Array.isArray(selectedType.script_default_columns) &&
+      selectedType.script_default_columns.length > 0
+        ? selectedType.script_default_columns.filter(
+            (c) => c.id !== "col_sr" && c.id !== "sr_no"
+          )
+        : DEFAULT_SCRIPT_COL_DEFS;
+    return JSON.stringify(scriptColumns) !== JSON.stringify(savedCols);
+  }, [scriptColumns, selectedType]);
+
+  const isFolderArchDirty = React.useMemo(() => {
+    if (!selectedType) return false;
+    const savedArch =
+      selectedType.default_folder_architecture &&
+      Array.isArray(selectedType.default_folder_architecture) &&
+      selectedType.default_folder_architecture.length > 0
+        ? selectedType.default_folder_architecture
+        : DEFAULT_FOLDER_ARCHITECTURE;
+    return JSON.stringify(folderArchitecture) !== JSON.stringify(savedArch);
+  }, [folderArchitecture, selectedType]);
+
+  const hasUnsavedChanges = isWorkflowDirty || isScriptColsDirty || isFolderArchDirty;
+
+  // Unified smooth Save All handler (used by both top and bottom Save buttons)
+  const handleSaveAllChanges = async () => {
+    if (!selectedType || !hasUnsavedChanges || isSavingAll) return;
+
     try {
-      const res = await fetch(`/api/settings/content-types/${selectedType.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          default_folder_architecture: folderArchitecture,
-        }),
-      });
-      if (res.ok) {
-        setFolderArchSaved(true);
-        setTimeout(() => setFolderArchSaved(false), 2500);
-        await fetchContentTypes();
+      setIsSavingAll(true);
+      const requests: Promise<Response>[] = [];
+      let updatedTasksResult: WorkflowTaskItem[] | null = null;
+      let updatedSeriesResult: ContentTypeItem | null = null;
+
+      if (isWorkflowDirty) {
+        requests.push(
+          fetch("/api/settings/workflow-tasks", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content_type_id: selectedType.id,
+              tasks: localTasks.map((t, idx) => {
+                const isPublish = t.task_name.toLowerCase() === "publish";
+                return {
+                  id: t.id,
+                  task_name: t.task_name,
+                  sequence_order: idx + 1,
+                  n_days_offset: isPublish ? 0 : t.n_days_offset,
+                  team_buffer_days: t.team_buffer_days,
+                  team_final_buffer_days: t.team_final_buffer_days,
+                  is_hidden: t.is_hidden,
+                  color: t.color,
+                  update_mode: isPublish ? "automatic" : t.update_mode || "manual",
+                  automation_trigger: isPublish
+                    ? "publish_rules"
+                    : t.update_mode === "automatic"
+                    ? t.automation_trigger || "script_studio"
+                    : null,
+                  automation_role_id:
+                    !isPublish &&
+                    t.update_mode === "automatic" &&
+                    t.automation_trigger === "content_submission"
+                      ? t.automation_role_id || null
+                      : null,
+                  require_closure_link: isPublish ? false : Boolean(t.require_closure_link),
+                };
+              }),
+            }),
+          }).then(async (res) => {
+            if (res.ok) {
+              updatedTasksResult = await res.json();
+            }
+            return res;
+          })
+        );
+      }
+
+      if (isScriptColsDirty || isFolderArchDirty) {
+        requests.push(
+          fetch(`/api/settings/content-types/${selectedType.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...(isScriptColsDirty ? { script_default_columns: scriptColumns } : {}),
+              ...(isFolderArchDirty
+                ? { default_folder_architecture: folderArchitecture }
+                : {}),
+            }),
+          }).then(async (res) => {
+            if (res.ok) {
+              updatedSeriesResult = await res.json();
+            }
+            return res;
+          })
+        );
+      }
+
+      const responses = await Promise.all(requests);
+      if (responses.every((r) => r.ok)) {
+        // Update React state directly without page reload or scroll reset
+        setContentTypes((prev) =>
+          prev.map((ct) => {
+            if (ct.id !== selectedType.id) return ct;
+            return {
+              ...ct,
+              ...(updatedSeriesResult
+                ? {
+                    script_default_columns: updatedSeriesResult.script_default_columns,
+                    default_folder_architecture:
+                      updatedSeriesResult.default_folder_architecture,
+                  }
+                : {}),
+              ...(updatedTasksResult ? { workflow_tasks: updatedTasksResult } : {}),
+            };
+          })
+        );
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 2500);
       }
     } catch (err) {
-      console.error("Error saving default folder architecture:", err);
+      console.error("Error saving content series settings:", err);
     } finally {
-      setIsSavingFolderArch(false);
+      setIsSavingAll(false);
     }
   };
 
@@ -1515,24 +1459,28 @@ export function ContentTypesTab() {
 
   if (loading) {
     return (
-      <div className="card-theme p-12 text-center flex flex-col items-center justify-center gap-3">
+      <div className="card-theme p-12 text-center flex flex-col items-center justify-center gap-3 rounded-2xl">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        <span className="font-mono text-xs text-muted-foreground">Loading brands, workflows & content series...</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          Loading brands, workflows &amp; content series...
+        </span>
       </div>
     );
   }
 
-
   return (
     <div className="space-y-6">
-      {/* Top Section: Brand Manager & Switcher */}
-      <div className="card-theme p-4 space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      {/* ------------------------------------------------------------- */}
+      {/* Unified Hierarchy Navigation Card: Brand -> Content Series    */}
+      {/* ------------------------------------------------------------- */}
+      <div className="card-theme rounded-2xl overflow-hidden">
+        {/* Tier 1: Brand Switcher */}
+        <div className="p-4 sm:px-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-border/60">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
-            <Tag className="w-4 h-4 text-primary shrink-0 mr-0.5" />
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground mr-1.5 shrink-0">
-              Brands:
-            </span>
+            <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground mr-1 shrink-0">
+              <Tag className="w-3.5 h-3.5 text-primary" />
+              <span>Brand</span>
+            </div>
 
             {brands.map((b) => {
               const isSelected = selectedBrand?.id === b.id;
@@ -1555,6 +1503,17 @@ export function ContentTypesTab() {
                     style={{ backgroundColor: b.color || "#6366f1" }}
                   />
                   <span>{b.name}</span>
+                  {b.is_default && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded text-[9px] font-mono uppercase ${
+                        isSelected
+                          ? "bg-white/20 text-primary-foreground"
+                          : "bg-primary/10 text-primary"
+                      }`}
+                    >
+                      Default
+                    </span>
+                  )}
                   <span
                     className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                       isSelected
@@ -1611,89 +1570,75 @@ export function ContentTypesTab() {
           </div>
         </div>
 
-        {selectedBrand && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/60 text-[11px] font-mono text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: selectedBrand.color || "#6366f1" }}
-              />
-              <span className="text-foreground font-semibold">{selectedBrand.name}</span>
-              {selectedBrand.is_default && (
-                <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold uppercase">
-                  Default
-                </span>
-              )}
-              {selectedBrand.description && (
-                <span className="text-muted-foreground truncate max-w-md">
-                  • {selectedBrand.description}
-                </span>
-              )}
+        {/* Tier 2: Content Series Selector inside Active Brand */}
+        <div className="p-4 sm:px-5 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+            <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground mr-1 shrink-0">
+              <Film className="w-3.5 h-3.5 text-primary" />
+              <span>Series</span>
             </div>
-            <span>
-              {scopedContentTypes.length} Content Series in this Brand
-            </span>
+
+            {scopedContentTypes.length === 0 ? (
+              <span className="text-xs font-mono text-muted-foreground italic">
+                No series yet in {selectedBrand?.name || "this Brand"}
+              </span>
+            ) : (
+              scopedContentTypes.map((t) => {
+                const isSelected = selectedType?.id === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedTypeId(t.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-background/70 hover:bg-muted text-foreground border-border"
+                    }`}
+                  >
+                    <span>{t.name}</span>
+                    {(t.prefix || t.suffix) && (
+                      <span
+                        className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                          isSelected
+                            ? "bg-white/20 text-primary-foreground"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {t.prefix || ""}#{t.suffix || ""}
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Scoped Content Series Bar: Series Pills + Add Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 card-theme">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-          <Film className="w-4 h-4 text-primary shrink-0 mr-1" />
-          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground mr-2 shrink-0">
-            Content Series:
-          </span>
-          {scopedContentTypes.length === 0 ? (
-            <span className="text-xs font-mono text-muted-foreground italic">
-              No series yet in {selectedBrand?.name || "this Brand"}
-            </span>
-          ) : (
-            scopedContentTypes.map((t) => {
-              const isSelected = selectedType?.id === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setSelectedTypeId(t.id)}
-                  className={`px-3 py-1.5 rounded text-xs font-semibold font-mono transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
-                    isSelected
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-muted/50 hover:bg-muted text-foreground border-border"
-                  }`}
-                  style={{ borderRadius: "var(--radius)" }}
-                >
-                  <span>{t.name}</span>
-                  {t.prefix && <span className="opacity-70 text-[10px]">({t.prefix})</span>}
-                </button>
-              );
-            })
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              resetTypeForm();
+              setIsNewTypeModalOpen(true);
+            }}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold glass-subtle hover:bg-primary hover:text-primary-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Content Series</span>
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            resetTypeForm();
-            setIsNewTypeModalOpen(true);
-          }}
-          className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-          style={{ borderRadius: "var(--radius)" }}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Content Series</span>
-        </button>
       </div>
 
+      {/* Empty State when Brand has no Content Series */}
       {!selectedType && selectedBrand && (
-        <div className="card-theme p-10 text-center space-y-3 border-dashed border-2 border-border/80">
+        <div className="card-theme rounded-2xl p-10 text-center space-y-3 border-dashed border-2 border-border/80">
           <Layers className="w-9 h-9 text-muted-foreground/40 mx-auto" />
           <h3 className="font-bold text-sm text-foreground">
             No Content Series in {selectedBrand.name}
           </h3>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            Create a Content Series under <strong>{selectedBrand.name}</strong> to configure its upload cadence,
-            ID prefix, sequential workflow pipeline, script columns, and Google Drive folders.
+            Create a Content Series under <strong>{selectedBrand.name}</strong> to configure
+            its upload cadence, ID prefix, sequential workflow pipeline, script columns, and
+            Google Drive folders.
           </p>
           <button
             type="button"
@@ -1709,234 +1654,219 @@ export function ContentTypesTab() {
         </div>
       )}
 
+      {/* Active Content Series Configuration Workspace */}
       {selectedType && (
         <div className="space-y-6">
-          {/* Content Type Configuration Overview Card */}
-          <div className="card-theme p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border mb-4">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-xl font-bold font-display">{selectedType.name}</h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-muted border border-border">
-                    ID Prefix: {selectedType.prefix || "None"}
+          {/* 1. Series Identity & Cadence Summary Header Card */}
+          <div className="card-theme rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {selectedBrand && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium glass-subtle border border-border">
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: selectedBrand.color || "#6366f1" }}
+                    />
+                    <span>{selectedBrand.name}</span>
                   </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cadence: <strong className="text-foreground capitalize">{selectedType.cadence_type}</strong> •{" "}
-                  <span className="font-mono text-[11px] text-foreground">
-                    {(() => {
-                      const numWeeks =
-                        selectedType.cadence_type === "biweekly"
-                          ? 2
-                          : selectedType.cadence_type === "triweekly"
-                          ? 3
-                          : selectedType.cadence_type === "quadrupleweekly"
-                          ? 4
-                          : 1;
-
-                      if (numWeeks === 1) {
-                        const days = (selectedType.upload_days || ["Tuesday"]).map((d) => d.replace(/^W1-/i, ""));
-                        return `Upload Days: ${days.join(", ") || "None"}`;
-                      }
-
-                      const parts: string[] = [];
-                      for (let w = 1; w <= numWeeks; w++) {
-                        const days = (selectedType.upload_days || [])
-                          .filter((d) => d.toLowerCase().startsWith(`w${w}-`))
-                          .map((d) => d.replace(new RegExp(`^w${w}-`, "i"), ""));
-                        parts.push(`Week ${w}: ${days.length > 0 ? days.join(", ") : "None"}`);
-                      }
-                      return parts.join(" • ");
-                    })()}
-                  </span>
-                </p>
+                )}
+                <h2 className="text-xl font-bold tracking-tight text-foreground">
+                  {selectedType.name}
+                </h2>
+                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono bg-muted border border-border text-muted-foreground">
+                  ID: {selectedType.prefix || "—"}001{selectedType.suffix || ""}
+                </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEditModal(selectedType)}
-                  className="px-3 py-1.5 rounded text-xs font-medium bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer"
-                  style={{ borderRadius: "var(--radius)" }}
-                >
-                  <Edit2 className="w-3 h-3" />
-                  <span>Edit Cadence & Config</span>
-                </button>
-                {contentTypes.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteContentType(selectedType.id)}
-                    className="px-2.5 py-1.5 rounded text-xs font-medium text-destructive hover:bg-destructive/10 border border-destructive/20 transition-all cursor-pointer"
-                    style={{ borderRadius: "var(--radius)" }}
-                    title="Delete Content Series"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 font-medium capitalize">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{selectedType.cadence_type} Cadence</span>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg glass-subtle font-mono text-[11px] text-foreground">
+                  {formatCadenceSummary(selectedType)}
+                </span>
+                <span className="px-2.5 py-1 rounded-lg glass-subtle font-mono text-[11px] text-muted-foreground">
+                  {localTasks.length} Stages • {selectedType.misc_tasks?.length || 0} Misc Checks
+                </span>
               </div>
             </div>
 
-            {/* Workflow Pipeline Builder */}
-            <div className="mt-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-primary" />
-                    <h3 className="font-bold text-sm">Sequential Workflow Pipeline</h3>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-muted border border-border">
-                      {localTasks.length} Stages
-                    </span>
-                    {isDirty && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/15 text-amber-500 border border-amber-500/30 flex items-center gap-1 font-semibold animate-in fade-in duration-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        Unsaved changes
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Strict sequential order. Tasks are locked to start with <strong>Ideation</strong> and end with <strong>Publish</strong>.
-                  </p>
-                </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {hasUnsavedChanges && (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-mono bg-amber-500/15 text-amber-500 border border-amber-500/30 flex items-center gap-1.5 font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Unsaved changes
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => openEditModal(selectedType)}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Edit Cadence &amp; Config</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAllChanges}
+                disabled={!hasUnsavedChanges || isSavingAll}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs ${
+                  saveSuccess
+                    ? "bg-emerald-600 text-white border border-emerald-600"
+                    : hasUnsavedChanges
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 border border-primary cursor-pointer ring-2 ring-primary/20"
+                    : "bg-muted text-muted-foreground border border-border opacity-50 cursor-not-allowed"
+                }`}
+              >
+                {isSavingAll ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : saveSuccess ? (
+                  <Check className="w-3.5 h-3.5" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+                <span>{saveSuccess ? "Saved!" : "Save Changes"}</span>
+              </button>
+              {contentTypes.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteContentType(selectedType.id)}
+                  className="p-2 rounded-xl text-xs font-medium text-destructive hover:bg-destructive/10 border border-destructive/20 transition-all cursor-pointer"
+                  title="Delete Content Series"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
 
+          {/* 2. Streamlined Sequential Workflow Pipeline Card */}
+          <div className="card-theme rounded-2xl p-5 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-border/60">
+              <div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsNewTaskModalOpen(true)}
-                    className="px-3 py-1.5 rounded text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer"
-                    style={{ borderRadius: "var(--radius)" }}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Insert Task</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSaveAllWorkflowChanges}
-                    disabled={!isDirty || isSavingAll}
-                    className={`px-3.5 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs ${
-                      saveSuccess
-                        ? "bg-emerald-600 text-white border-emerald-600"
-                        : isDirty
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary cursor-pointer ring-2 ring-primary/20"
-                        : "bg-muted text-muted-foreground border-border opacity-50 cursor-not-allowed"
-                    }`}
-                    style={{ borderRadius: "var(--radius)" }}
-                    title={isDirty ? "Save all workflow changes" : "No changes to save"}
-                  >
-                    {isSavingAll ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : saveSuccess ? (
-                      <Check className="w-3.5 h-3.5" />
-                    ) : (
-                      <Save className="w-3.5 h-3.5" />
-                    )}
-                    <span>{saveSuccess ? "Saved!" : "Save Workflow Changes"}</span>
-                  </button>
+                  <Layers className="w-4 h-4 text-primary" />
+                  <h3 className="font-bold text-sm">Sequential Workflow Pipeline</h3>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-muted border border-border">
+                    {localTasks.length} Stages
+                  </span>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Locked endpoints: starts with <strong>Ideation</strong> and ends with{" "}
+                  <strong>Publish</strong>. Use the up/down arrows to reorder, and configure
+                  offsets (P - n), review buffers, and status triggers.
+                </p>
               </div>
 
-              {/* Linear Tasks List with Dense Inline-Row Layout */}
-              <div className="overflow-x-auto pb-2">
-                <div className="min-w-[720px] space-y-1.5">
-                  {/* Table Header Row */}
-                  <div className="grid grid-cols-[3.5rem_2.5rem_1fr_6rem_5rem_5rem_6rem_4.5rem] items-center gap-2 px-3 py-2 text-[10px] font-mono text-muted-foreground uppercase tracking-wider glass-subtle rounded-xl">
-                    <div className="text-center">Order</div>
-                    <div className="text-center">Color</div>
-                    <div>Task Title</div>
-                    <div className="text-center">Offset (P-n)</div>
-                    <div className="text-center">1st Buffer</div>
-                    <div className="text-center">Final Buffer</div>
-                    <div className="text-center">Worst-Case</div>
-                    <div className="text-center">Actions</div>
-                  </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsNewTaskModalOpen(true)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Insert Task</span>
+                </button>
+              </div>
+            </div>
 
-                  {/* Task Rows */}
-                  {localTasks.map((task, idx) => {
-                    const isIdeation = task.task_name.toLowerCase() === "ideation";
-                    const isPublish = task.task_name.toLowerCase() === "publish";
-                    const isLocked = isIdeation || isPublish;
+            <div className="overflow-x-auto pb-1">
+              <div className="min-w-[740px] space-y-2">
+                {/* Table Header */}
+                <div className="grid grid-cols-[4rem_2.5rem_1fr_5.5rem_5rem_5rem_6rem_4.5rem] items-center gap-2 px-3 py-2 text-[10px] font-mono text-muted-foreground uppercase tracking-wider glass-subtle rounded-xl">
+                  <div className="text-center">Order</div>
+                  <div className="text-center">Color</div>
+                  <div>Stage Title</div>
+                  <div className="text-center">Days (n)</div>
+                  <div className="text-center">1st Buf</div>
+                  <div className="text-center">Final Buf</div>
+                  <div className="text-center">Target</div>
+                  <div className="text-center">Actions</div>
+                </div>
 
-                    // Cumulative offset calculation: sum of n days from Publish to this task
-                    const cumulativeOffset = localTasks
-                      .slice(idx)
-                      .reduce((acc, t) => acc + (Number(t.n_days_offset) || 0), 0);
+                {/* Stage Rows */}
+                {localTasks.map((task, idx) => {
+                  const isIdeation = task.task_name.toLowerCase() === "ideation";
+                  const isPublish = task.task_name.toLowerCase() === "publish";
+                  const isLocked = isIdeation || isPublish;
 
-                    const colorHex = resolveTaskColorHex(task.task_name, task.color);
+                  const cumulativeOffset = localTasks
+                    .slice(idx)
+                    .reduce((acc, t) => acc + (Number(t.n_days_offset) || 0), 0);
 
-                    return (
-                      <div
-                        key={task.id}
-                        draggable={!isLocked}
-                        onDragStart={(e) => handleDragStart(e, idx)}
-                        onDragOver={(e) => handleDragOver(e, idx)}
-                        onDrop={(e) => handleDrop(e, idx)}
-                        className={`grid grid-cols-[3.5rem_2.5rem_1fr_6rem_5rem_5rem_6rem_4.5rem] items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-250 text-xs ${
-                          task.is_hidden
-                            ? "opacity-50 glass-subtle border-dashed"
-                            : isLocked
-                            ? "glass-subtle border-border/80"
-                            : "glass-subtle hover:border-primary/40 shadow-xs"
-                        } ${draggedIndex === idx ? "opacity-30 border-primary" : ""}`}
-                      >
-                        {/* 1. Drag Handle / Order */}
+                  const colorHex = resolveTaskColorHex(task.task_name, task.color);
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={`rounded-xl border transition-all duration-200 text-xs px-3 py-2.5 ${
+                        task.is_hidden
+                          ? "opacity-55 glass-subtle border-dashed"
+                          : isLocked
+                          ? "glass-subtle border-border/80"
+                          : "glass-subtle hover:border-primary/40 shadow-xs"
+                      }`}
+                    >
+                      <div className="grid grid-cols-[4rem_2.5rem_1fr_5.5rem_5rem_5rem_6rem_4.5rem] items-center gap-2">
+                        {/* Order (Up / Down arrows only) */}
                         <div className="flex items-center justify-center gap-1">
                           {isLocked ? (
-                            <span className="w-5 h-5 rounded-full bg-muted border border-border text-[10px] font-mono font-bold flex items-center justify-center text-muted-foreground">
-                              <Lock className="w-2.5 h-2.5" />
+                            <span className="w-6 h-6 rounded-full bg-muted border border-border text-[10px] font-mono font-bold flex items-center justify-center text-muted-foreground">
+                              <Lock className="w-3 h-3" />
                             </span>
                           ) : (
-                            <div className="flex items-center gap-0.5">
+                            <div className="flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => moveLocalTask(idx, "up")}
                                 disabled={idx <= 1}
-                                className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
+                                className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
                                 title="Move earlier"
                               >
-                                <ArrowUp className="w-3 h-3" />
+                                <ArrowUp className="w-3.5 h-3.5" />
                               </button>
-                              <GripVertical className="w-3.5 h-3.5 text-muted-foreground/60 cursor-grab active:cursor-grabbing shrink-0" />
                               <button
                                 type="button"
                                 onClick={() => moveLocalTask(idx, "down")}
                                 disabled={idx >= localTasks.length - 2}
-                                className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
+                                className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
                                 title="Move later"
                               >
-                                <ArrowDown className="w-3 h-3" />
+                                <ArrowDown className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           )}
                         </div>
 
-                        {/* 2. Color Swatch */}
+                        {/* Color */}
                         <div className="flex items-center justify-center">
                           <TaskColorSwatch
                             color={colorHex}
                             onChange={(newHex) => updateLocalTask(task.id, { color: newHex })}
-                            disabled={false}
                           />
                         </div>
 
-                        {/* 3. Task Title Input */}
+                        {/* Task Title */}
                         <div className="min-w-0">
                           <input
                             type="text"
                             readOnly={isLocked}
                             disabled={isLocked}
                             value={task.task_name}
-                            onChange={(e) => updateLocalTask(task.id, { task_name: e.target.value })}
-                            className={`w-full h-8 px-2.5 text-xs rounded border transition-colors ${
+                            onChange={(e) =>
+                              updateLocalTask(task.id, { task_name: e.target.value })
+                            }
+                            className={`w-full h-8 px-2.5 text-xs rounded-lg border transition-colors ${
                               isLocked
                                 ? "bg-muted/40 border-transparent font-bold text-muted-foreground cursor-not-allowed"
                                 : "bg-background border-border focus:border-primary font-medium"
                             }`}
-                            style={{ borderRadius: "var(--radius)" }}
                             placeholder="Task Title..."
                           />
                         </div>
 
-                        {/* 4. Offset 'n' Input */}
+                        {/* Offset */}
                         <div>
                           <input
                             type="number"
@@ -1951,17 +1881,20 @@ export function ContentTypesTab() {
                                 n_days_offset: Math.max(0, parseInt(e.target.value) || 0),
                               });
                             }}
-                            className={`w-full h-8 px-2 text-center text-xs font-mono rounded border ${
+                            className={`w-full h-8 px-2 text-center text-xs font-mono rounded-lg border ${
                               isPublish
                                 ? "bg-muted/40 border-transparent text-muted-foreground font-bold cursor-not-allowed"
                                 : "bg-background border-border focus:border-primary"
                             }`}
-                            style={{ borderRadius: "var(--radius)" }}
-                            title={isPublish ? "Publish offset is fixed at 0" : "Days needed from Publish (n)"}
+                            title={
+                              isPublish
+                                ? "Publish offset is fixed at 0"
+                                : "Days needed for this step (n)"
+                            }
                           />
                         </div>
 
-                        {/* 5. 1st Buffer Input */}
+                        {/* 1st Buffer */}
                         <div>
                           <input
                             type="number"
@@ -1974,13 +1907,12 @@ export function ContentTypesTab() {
                                 team_buffer_days: Math.max(0, parseInt(e.target.value) || 0),
                               })
                             }
-                            className="w-full h-8 px-2 text-center text-xs font-mono rounded bg-background border border-border focus:border-primary disabled:opacity-30 disabled:bg-muted/30"
-                            style={{ borderRadius: "var(--radius)" }}
+                            className="w-full h-8 px-2 text-center text-xs font-mono rounded-lg bg-background border border-border focus:border-primary disabled:opacity-30 disabled:bg-muted/30"
                             title="1st submission buffer (days prior to worst-case)"
                           />
                         </div>
 
-                        {/* 6. Final Buffer Input */}
+                        {/* Final Buffer */}
                         <div>
                           <input
                             type="number"
@@ -1990,19 +1922,21 @@ export function ContentTypesTab() {
                             value={task.team_final_buffer_days}
                             onChange={(e) =>
                               updateLocalTask(task.id, {
-                                team_final_buffer_days: Math.max(0, parseInt(e.target.value) || 0),
+                                team_final_buffer_days: Math.max(
+                                  0,
+                                  parseInt(e.target.value) || 0
+                                ),
                               })
                             }
-                            className="w-full h-8 px-2 text-center text-xs font-mono rounded bg-background border border-border focus:border-primary disabled:opacity-30 disabled:bg-muted/30"
-                            style={{ borderRadius: "var(--radius)" }}
+                            className="w-full h-8 px-2 text-center text-xs font-mono rounded-lg bg-background border border-border focus:border-primary disabled:opacity-30 disabled:bg-muted/30"
                             title="Final submission revision buffer"
                           />
                         </div>
 
-                        {/* 7. Live Cumulative Worst-Case Preview */}
+                        {/* Cumulative Worst-Case Preview */}
                         <div className="flex items-center justify-center">
                           <span
-                            className={`px-2 py-1 rounded text-[11px] font-mono font-bold whitespace-nowrap ${
+                            className={`px-2 py-1 rounded-lg text-[11px] font-mono font-bold whitespace-nowrap ${
                               cumulativeOffset === 0
                                 ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
                                 : "bg-primary/10 text-primary border border-primary/20"
@@ -2012,21 +1946,31 @@ export function ContentTypesTab() {
                           </span>
                         </div>
 
-                        {/* 8. Action Icons: Hide / Trash */}
+                        {/* Hide / Delete */}
                         <div className="flex items-center justify-center gap-1">
                           {!isLocked ? (
                             <>
                               <button
                                 type="button"
-                                onClick={() => updateLocalTask(task.id, { is_hidden: !task.is_hidden })}
-                                className={`p-1.5 rounded transition-colors cursor-pointer ${
+                                onClick={() =>
+                                  updateLocalTask(task.id, { is_hidden: !task.is_hidden })
+                                }
+                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                                   task.is_hidden
                                     ? "text-amber-500 hover:bg-amber-500/15"
                                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                                 }`}
-                                title={task.is_hidden ? "Task is hidden (Click to unhide)" : "Hide task from tracker"}
+                                title={
+                                  task.is_hidden
+                                    ? "Task is hidden (Click to unhide)"
+                                    : "Hide task from tracker"
+                                }
                               >
-                                {task.is_hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                {task.is_hidden ? (
+                                  <EyeOff className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Eye className="w-3.5 h-3.5" />
+                                )}
                               </button>
 
                               <button
@@ -2035,648 +1979,612 @@ export function ContentTypesTab() {
                                   setDeleteConfirmTask(task);
                                   setDeleteStep(1);
                                 }}
-                                className="p-1.5 rounded text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                                 title="Delete task permanently"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </>
                           ) : (
-                            <span className="text-[10px] font-mono text-muted-foreground/60 italic">Fixed</span>
+                            <span className="text-[10px] font-mono text-muted-foreground/60 italic">
+                              Fixed
+                            </span>
                           )}
                         </div>
+                      </div>
 
-                        {/* 9. Sub-Row: Status Automation & Closure Link Settings */}
-                        {isPublish && (
-                          <div className="col-span-full pt-2 mt-1 border-t border-border/40 flex flex-wrap items-center justify-between gap-2 text-xs">
-                            <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400">
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>Fixed Bookend Trigger: Automatically Done when all previous tasks are Done AND publish target date has passed.</span>
-                            </div>
-                            <span className="text-[10px] font-mono text-muted-foreground bg-muted/60 px-2 py-0.5 rounded border border-border">
-                              Automatic ⚡
+                      {/* Slim Mode & Automation Strip */}
+                      {isPublish && (
+                        <div className="pt-2 mt-2 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-500">
+                            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                            <span>
+                              Auto-completes when prior stages are Done and publish date has
+                              passed.
                             </span>
                           </div>
-                        )}
-
-                        {!isIdeation && !isPublish && (
-                          <div className="col-span-full pt-2 mt-1 border-t border-border/40 flex flex-wrap items-center justify-between gap-2 text-xs">
-                            <div className="flex flex-wrap items-center gap-3">
-                              <span className="text-[10px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                                Task Status Mode:
-                              </span>
-                              <div className="inline-flex items-center p-0.5 rounded bg-muted/60 border border-border text-[11px] font-mono">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateLocalTask(task.id, {
-                                      update_mode: "manual",
-                                      automation_trigger: null,
-                                      automation_role_id: null,
-                                    })
-                                  }
-                                  className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
-                                    task.update_mode !== "automatic"
-                                      ? "bg-primary text-primary-foreground shadow-xs"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  }`}
-                                >
-                                  Manual
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateLocalTask(task.id, {
-                                      update_mode: "automatic",
-                                      automation_trigger: task.automation_trigger || "script_studio",
-                                      automation_role_id:
-                                        (task.automation_trigger || "script_studio") === "content_submission"
-                                          ? task.automation_role_id || qualifiedSubmissionRoles[0]?.id || null
-                                          : null,
-                                      require_closure_link: false,
-                                    })
-                                  }
-                                  className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
-                                    task.update_mode === "automatic"
-                                      ? "bg-amber-500 text-amber-950 font-bold shadow-xs"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  }`}
-                                >
-                                  Automatic ⚡
-                                </button>
-                              </div>
-
-                              {/* If Automatic: Trigger Dropdown */}
-                              {task.update_mode === "automatic" && (
-                                <div className="flex flex-wrap items-center gap-2 animate-in fade-in duration-150">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] font-mono text-muted-foreground">Trigger:</span>
-                                    <select
-                                      value={task.automation_trigger || "script_studio"}
-                                      onChange={(e) => {
-                                        const nextTrigger = e.target.value as any;
-                                        updateLocalTask(task.id, {
-                                          automation_trigger: nextTrigger,
-                                          automation_role_id:
-                                            nextTrigger === "content_submission"
-                                              ? task.automation_role_id || qualifiedSubmissionRoles[0]?.id || null
-                                              : null,
-                                        });
-                                      }}
-                                      className="h-6 px-2 text-[11px] font-mono bg-background border border-amber-500/50 text-foreground rounded focus:outline-none focus:border-amber-500 cursor-pointer"
-                                    >
-                                      <option value="script_studio">Scripting Studio update</option>
-                                      <option value="drive_raw_footage">Content Upload in drive (Raw Footage)</option>
-                                      <option
-                                        value="content_submission"
-                                        disabled={qualifiedSubmissionRoles.length === 0}
-                                      >
-                                        {qualifiedSubmissionRoles.length === 0
-                                          ? "Content Submission (No team member assigned)"
-                                          : "Content Submission (Deliverable cuts)"}
-                                      </option>
-                                    </select>
-                                  </div>
-
-                                  {/* If Content Submission: Member Dropdown */}
-                                  {task.automation_trigger === "content_submission" && qualifiedSubmissionRoles.length > 0 && (
-                                    <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
-                                      <span className="text-[10px] font-mono text-muted-foreground">Member:</span>
-                                      <select
-                                        value={task.automation_role_id || qualifiedSubmissionRoles[0]?.id || ""}
-                                        onChange={(e) =>
-                                          updateLocalTask(task.id, {
-                                            automation_role_id: e.target.value,
-                                          })
-                                        }
-                                        className="h-6 px-2 text-[11px] font-mono bg-background border border-amber-500/50 text-foreground rounded focus:outline-none focus:border-amber-500 cursor-pointer"
-                                      >
-                                        {qualifiedSubmissionRoles.map((r) => (
-                                          <option key={r.id} value={r.id}>
-                                            {r.name} ({r.role_title})
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* If Manual: Require Closure Link Checkbox */}
-                              {task.update_mode !== "automatic" && (
-                                <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] text-muted-foreground hover:text-foreground">
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(task.require_closure_link)}
-                                    onChange={(e) =>
-                                      updateLocalTask(task.id, {
-                                        require_closure_link: e.target.checked,
-                                      })
-                                    }
-                                    className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
-                                  />
-                                  <span>Enable Closure Link (Prompts for published content URL upon marking Done)</span>
-                                </label>
-                              )}
-                            </div>
-
-                            {/* Status Helper Tag */}
-                            <div className="text-[10px] font-mono text-muted-foreground hidden sm:block">
-                              {task.update_mode === "automatic" ? (
-                                task.automation_trigger === "script_studio" ? (
-                                  <span className="text-amber-400 font-medium">⚡ Syncs with Script Studio status & review</span>
-                                ) : task.automation_trigger === "drive_raw_footage" ? (
-                                  <span className="text-amber-400 font-medium">⚡ Syncs when Raw Footage is declared uploaded</span>
-                                ) : (
-                                  <span className="text-amber-400 font-medium">
-                                    ⚡ Syncs with {roles.find((r) => r.id === task.automation_role_id)?.name || "assigned member"}&apos;s submissions & approval
-                                  </span>
-                                )
-                              ) : task.require_closure_link ? (
-                                <span className="text-emerald-400 font-medium">🔗 Requires final URL on completion</span>
-                              ) : (
-                                <span className="text-muted-foreground">✋ Manual update</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 10. Sub-Row: PWS Scheduling Metadata & Eligible Zones */}
-                        <div className="col-span-full">
-                          <PwsTaskMetadataControls
-                            values={{
-                              durationMins: task.durationMins,
-                              setupBufferMins: task.setupBufferMins,
-                              isSplittable: task.isSplittable,
-                              minSplitChunkMins: task.minSplitChunkMins,
-                              resistance: task.resistance,
-                              eligibleZoneIds: task.eligibleZoneIds,
-                            }}
-                            zones={scheduleZones}
-                            onChange={(partial) => updateLocalTask(task.id, partial)}
-                          />
+                          <span className="text-[10px] font-mono text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md border border-border">
+                            Automatic ⚡
+                          </span>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                      )}
 
-              {/* Unsaved Changes Bottom Banner */}
-              {isDirty && (
-                <div className="flex items-center justify-between p-3 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs mt-3 animate-in fade-in duration-200">
-                  <div className="flex items-center gap-2 text-amber-500 font-mono">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span>You have unsaved changes in the pipeline sequence.</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSaveAllWorkflowChanges}
-                    disabled={isSavingAll}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                    style={{ borderRadius: "var(--radius)" }}
-                  >
-                    {isSavingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                    <span>Save Workflow Changes</span>
-                  </button>
-                </div>
-              )}
+                      {!isIdeation && !isPublish && (
+                        <div className="pt-2 mt-2 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="inline-flex items-center p-0.5 rounded-lg bg-muted/60 border border-border text-[11px] font-mono">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateLocalTask(task.id, {
+                                    update_mode: "manual",
+                                    automation_trigger: null,
+                                    automation_role_id: null,
+                                  })
+                                }
+                                className={`px-2.5 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                                  task.update_mode !== "automatic"
+                                    ? "bg-primary text-primary-foreground shadow-xs"
+                                    : "text-muted-foreground hover:text-foreground"
+                                }`}
+                              >
+                                Manual
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateLocalTask(task.id, {
+                                    update_mode: "automatic",
+                                    automation_trigger:
+                                      task.automation_trigger || "script_studio",
+                                    automation_role_id:
+                                      (task.automation_trigger || "script_studio") ===
+                                      "content_submission"
+                                        ? task.automation_role_id ||
+                                          qualifiedSubmissionRoles[0]?.id ||
+                                          null
+                                        : null,
+                                    require_closure_link: false,
+                                  })
+                                }
+                                className={`px-2.5 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                                  task.update_mode === "automatic"
+                                    ? "bg-amber-500 text-amber-950 font-bold shadow-xs"
+                                    : "text-muted-foreground hover:text-foreground"
+                                }`}
+                              >
+                                Automatic ⚡
+                              </button>
+                            </div>
+
+                            {task.update_mode === "automatic" && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                  value={task.automation_trigger || "script_studio"}
+                                  onChange={(e) => {
+                                    const nextTrigger = e.target.value as any;
+                                    updateLocalTask(task.id, {
+                                      automation_trigger: nextTrigger,
+                                      automation_role_id:
+                                        nextTrigger === "content_submission"
+                                          ? task.automation_role_id ||
+                                            qualifiedSubmissionRoles[0]?.id ||
+                                            null
+                                          : null,
+                                    });
+                                  }}
+                                  className="h-7 px-2 text-[11px] font-mono bg-background border border-amber-500/50 text-foreground rounded-lg focus:outline-none focus:border-amber-500 cursor-pointer"
+                                >
+                                  <option value="script_studio">
+                                    Trigger: Scripting Studio update
+                                  </option>
+                                  <option value="drive_raw_footage">
+                                    Trigger: Drive Raw Footage upload
+                                  </option>
+                                  <option
+                                    value="content_submission"
+                                    disabled={qualifiedSubmissionRoles.length === 0}
+                                  >
+                                    {qualifiedSubmissionRoles.length === 0
+                                      ? "Trigger: Submission (No member assigned)"
+                                      : "Trigger: Deliverable Submission"}
+                                  </option>
+                                </select>
+
+                                {task.automation_trigger === "content_submission" &&
+                                  qualifiedSubmissionRoles.length > 0 && (
+                                    <select
+                                      value={
+                                        task.automation_role_id ||
+                                        qualifiedSubmissionRoles[0]?.id ||
+                                        ""
+                                      }
+                                      onChange={(e) =>
+                                        updateLocalTask(task.id, {
+                                          automation_role_id: e.target.value,
+                                        })
+                                      }
+                                      className="h-7 px-2 text-[11px] font-mono bg-background border border-amber-500/50 text-foreground rounded-lg focus:outline-none focus:border-amber-500 cursor-pointer"
+                                    >
+                                      {qualifiedSubmissionRoles.map((r) => (
+                                        <option key={r.id} value={r.id}>
+                                          {r.name} ({r.role_title})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                              </div>
+                            )}
+
+                            {task.update_mode !== "automatic" && (
+                              <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] text-muted-foreground hover:text-foreground">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(task.require_closure_link)}
+                                  onChange={(e) =>
+                                    updateLocalTask(task.id, {
+                                      require_closure_link: e.target.checked,
+                                    })
+                                  }
+                                  className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
+                                />
+                                <span>Require published URL on completion</span>
+                              </label>
+                            )}
+                          </div>
+
+                          <div className="text-[10px] font-mono text-muted-foreground hidden sm:block">
+                            {task.update_mode === "automatic" ? (
+                              task.automation_trigger === "script_studio" ? (
+                                <span className="text-amber-500 font-medium">
+                                  ⚡ Syncs with Script Studio review
+                                </span>
+                              ) : task.automation_trigger === "drive_raw_footage" ? (
+                                <span className="text-amber-500 font-medium">
+                                  ⚡ Syncs with Raw Footage declaration
+                                </span>
+                              ) : (
+                                <span className="text-amber-500 font-medium">
+                                  ⚡ Syncs with{" "}
+                                  {roles.find((r) => r.id === task.automation_role_id)
+                                    ?.name || "member"}
+                                  &apos;s approval
+                                </span>
+                              )
+                            ) : task.require_closure_link ? (
+                              <span className="text-emerald-500 font-medium">
+                                🔗 Prompts for final URL
+                              </span>
+                            ) : (
+                              <span>✋ Manual toggle</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+          </div>
 
-            {/* Non-linear Misc Tasks Checklist */}
-            <div className="mt-8 pt-6 border-t border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckSquare className="w-4 h-4 text-primary" />
-                <h3 className="font-bold text-sm">Misc Tasks Checklist</h3>
+          {/* 3. Responsive 2-Column Split: Misc Checklist & Script Studio Columns */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+            {/* Left (5 cols): Compact Misc Tasks Checklist Card */}
+            <div className="xl:col-span-5 card-theme rounded-2xl p-5 sm:p-6 space-y-4">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4 text-primary" />
+                    <h3 className="font-bold text-sm">Misc Tasks Checklist</h3>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-muted border border-border">
+                    {selectedType.misc_tasks?.length || 0} Items
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Parallel checklist items required before archiving an episode.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground mb-4">
-                Per SPEC.md Section 3.2 A: Non-sequential checklist tasks. All misc tasks must be marked Done before an episode can be Archived.
-              </p>
 
-              <div className="space-y-3 mb-4">
+              {/* Quick Add Bar */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newMiscInput}
+                  onChange={(e) => setNewMiscInput(e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && (e.preventDefault(), handleAddMiscTask())
+                  }
+                  placeholder="e.g. Thumbnail, Shorts teaser..."
+                  className="flex-1 h-8 px-3 text-xs rounded-xl bg-background border border-border focus:outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddMiscTask}
+                  className="h-8 px-3 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add</span>
+                </button>
+              </div>
+
+              {/* Compact Checklist List */}
+              <div className="space-y-1.5">
+                {(!selectedType.misc_tasks || selectedType.misc_tasks.length === 0) && (
+                  <p className="text-xs text-muted-foreground italic py-4 text-center glass-subtle rounded-xl">
+                    No misc checklist items configured yet.
+                  </p>
+                )}
+
                 {selectedType.misc_tasks?.map((misc) => {
-                  const pwsValues = normalizeMiscTaskPws(misc);
+                  const isEditing = editingMiscId === misc.id;
                   return (
                     <div
                       key={misc.id}
-                      className="p-3 rounded-lg bg-muted/40 border border-border space-y-2"
-                      style={{ borderRadius: "var(--radius)" }}
+                      className="px-3 py-2 rounded-xl glass-subtle border border-border/80 flex items-center justify-between gap-2 group"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-foreground">
-                          {misc.task_name}
-                        </span>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editingMiscName}
+                          onChange={(e) => setEditingMiscName(e.target.value)}
+                          onBlur={() => void handleRenameMiscTask(misc.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void handleRenameMiscTask(misc.id);
+                            } else if (e.key === "Escape") {
+                              setEditingMiscId(null);
+                            }
+                          }}
+                          className="flex-1 h-7 px-2 text-xs rounded-lg bg-background border border-primary focus:outline-none"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary/70 shrink-0" />
+                          <span className="text-xs font-medium text-foreground truncate">
+                            {misc.task_name}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!isEditing && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingMiscId(misc.id);
+                              setEditingMiscName(misc.task_name);
+                            }}
+                            className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                            title="Rename item"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleDeleteMiscTask(misc.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                          className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                           title="Remove misc task"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <PwsTaskMetadataControls
-                        values={pwsValues}
-                        zones={scheduleZones}
-                        onChange={(partial) =>
-                          void handleUpdateMiscTaskPws(misc.id, partial)
-                        }
-                      />
                     </div>
                   );
                 })}
               </div>
-
-              <div className="flex items-center gap-2 max-w-sm">
-                <input
-                  type="text"
-                  value={newMiscInput}
-                  onChange={(e) => setNewMiscInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddMiscTask())}
-                  placeholder="e.g. Community Post, Shorts Teaser..."
-                  className="flex-1 h-8 px-2.5 text-xs rounded bg-background border border-border focus:outline-none focus:border-primary"
-                  style={{ borderRadius: "var(--radius)" }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddMiscTask}
-                  className="h-8 px-3 rounded text-xs font-semibold bg-muted hover:bg-muted/80 border border-border flex items-center gap-1 cursor-pointer"
-                  style={{ borderRadius: "var(--radius)" }}
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>Add</span>
-                </button>
-              </div>
             </div>
 
-            {/* Default Script Columns Section */}
-            <div className="mt-8 pt-6 border-t border-border">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-                <div className="flex items-center gap-2">
-                  <Columns3 className="w-4 h-4 text-primary" />
-                  <h3 className="font-bold text-sm">Default Script Columns</h3>
+            {/* Right (7 cols): Default Script Columns Card */}
+            <div className="xl:col-span-7 card-theme rounded-2xl p-5 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Columns3 className="w-4 h-4 text-primary" />
+                    <h3 className="font-bold text-sm">Default Script Columns</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Custom columns for new scripts (Sr. No. and Actions are added
+                    automatically).
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSaveScriptColumns}
-                  disabled={isSavingScriptCols}
-                  className="px-3.5 py-1.5 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  style={{ borderRadius: "var(--radius)" }}
-                >
-                  {isSavingScriptCols ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : scriptColsSaved ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Save className="w-3.5 h-3.5" />
-                  )}
-                  <span>{scriptColsSaved ? "Saved Columns!" : "Save Script Columns"}</span>
-                </button>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleAddScriptColumn}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 border border-border flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Column</span>
+                  </button>
+                </div>
               </div>
 
-              <p className="text-xs text-muted-foreground mb-4">
-                Define the default custom columns designed for scripts in this Content Series.{" "}
-                <span className="text-foreground font-medium">
-                  (Note: Sr. No. and Action columns are hardcoded system columns and are automatically included).
-                </span>
-              </p>
-
-              <div className="space-y-2 mb-4">
+              <div className="space-y-2">
                 {scriptColumns.map((col, idx) => (
                   <div
                     key={col.id}
-                    className="p-3 rounded-md bg-muted/40 border border-border flex flex-col md:flex-row md:items-center gap-3 text-xs"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="p-3 rounded-xl glass-subtle border border-border/80 flex flex-col gap-2.5 text-xs"
                   >
-                    {/* Reorder and Index */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <div className="flex flex-col gap-0.5">
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => handleMoveScriptColumn(idx, "up")}
-                          className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
-                          title="Move up"
-                        >
-                          <ArrowUp className="w-3 h-3" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={idx === scriptColumns.length - 1}
-                          onClick={() => handleMoveScriptColumn(idx, "down")}
-                          className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
-                          title="Move down"
-                        >
-                          <ArrowDown className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <span className="font-mono text-muted-foreground w-5 text-center">{idx + 1}</span>
-                    </div>
-
-                    {/* Column Name */}
-                    <div className="flex-1 min-w-[160px]">
-                      <label className="text-[10px] uppercase font-mono text-muted-foreground block mb-1">
-                        Column Name
-                      </label>
-                      <input
-                        type="text"
-                        value={col.name}
-                        onChange={(e) => handleUpdateScriptColField(col.id, "name", e.target.value)}
-                        placeholder="e.g. Dialogue / Spoken Words"
-                        className="w-full h-8 px-2.5 text-xs rounded bg-background border border-border focus:outline-none focus:border-primary"
-                        style={{ borderRadius: "var(--radius)" }}
-                      />
-                    </div>
-
-                    {/* Column Type */}
-                    <div className="w-28 shrink-0">
-                      <label className="text-[10px] uppercase font-mono text-muted-foreground block mb-1">
-                        Type
-                      </label>
-                      <select
-                        value={col.type}
-                        onChange={(e) => handleUpdateScriptColField(col.id, "type", e.target.value)}
-                        className="w-full h-8 px-2 text-xs rounded bg-background border border-border focus:outline-none focus:border-primary cursor-pointer"
-                        style={{ borderRadius: "var(--radius)" }}
-                      >
-                        <option value="text">Text</option>
-                        <option value="dropdown">Dropdown</option>
-                      </select>
-                    </div>
-
-                    {/* Default Width */}
-                    <div className="w-24 shrink-0">
-                      <label className="text-[10px] uppercase font-mono text-muted-foreground block mb-1">
-                        Width
-                      </label>
-                      <input
-                        type="text"
-                        value={col.width || ""}
-                        onChange={(e) => handleUpdateScriptColField(col.id, "width", e.target.value)}
-                        placeholder="220px"
-                        className="w-full h-8 px-2 text-xs font-mono rounded bg-background border border-border focus:outline-none focus:border-primary"
-                        style={{ borderRadius: "var(--radius)" }}
-                      />
-                    </div>
-
-                    {/* Options (if dropdown) */}
-                    {col.type === "dropdown" ? (
-                      <div className="flex-1 min-w-[200px]">
-                        <label className="text-[10px] uppercase font-mono text-muted-foreground block mb-1">
-                          Dropdown Options
-                        </label>
-                        <div className="flex flex-wrap gap-1.5 mb-1.5">
-                          {col.options?.map((opt) => (
-                            <span
-                              key={opt}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-background border border-border"
-                              style={{ borderRadius: "var(--radius)" }}
-                            >
-                              <span>{opt}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveDropdownOption(col.id, opt)}
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                <X className="w-2.5 h-2.5" />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="text"
-                            value={newOptionInputs[col.id] || ""}
-                            onChange={(e) =>
-                              setNewOptionInputs((prev) => ({ ...prev, [col.id]: e.target.value }))
-                            }
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && (e.preventDefault(), handleAddDropdownOption(col.id))
-                            }
-                            placeholder="Add option..."
-                            className="h-7 px-2 text-[11px] flex-1 rounded bg-background border border-border focus:outline-none focus:border-primary"
-                            style={{ borderRadius: "var(--radius)" }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleAddDropdownOption(col.id)}
-                            className="h-7 px-2 text-[11px] font-semibold bg-muted hover:bg-muted/80 rounded border border-border cursor-pointer"
-                            style={{ borderRadius: "var(--radius)" }}
-                          >
-                            Add
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex-1 min-w-[120px] hidden md:block">
-                        <label className="text-[10px] uppercase font-mono text-muted-foreground block mb-1">
-                          Data
-                        </label>
-                        <span className="text-xs text-muted-foreground italic h-8 flex items-center">
-                          Multi-line text input
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Delete Column Action */}
-                    <div className="shrink-0 flex items-end">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteScriptColumn(col.id)}
-                        disabled={scriptColumns.length <= 1}
-                        className="h-8 px-2 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-20 transition-colors cursor-pointer"
-                        title="Delete column"
-                        style={{ borderRadius: "var(--radius)" }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleAddScriptColumn}
-                className="px-3 py-1.5 rounded text-xs font-semibold bg-muted hover:bg-muted/80 border border-border flex items-center gap-1.5 cursor-pointer transition-all"
-                style={{ borderRadius: "var(--radius)" }}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Script Column</span>
-              </button>
-            </div>
-
-            {/* Default Content Folder Architecture Section */}
-            <div className="mt-8 pt-6 border-t border-border">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-                <div className="flex items-center gap-2">
-                  <FolderTree className="w-4 h-4 text-amber-500" />
-                  <h3 className="font-bold text-sm">Default Content Folder Architecture</h3>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                    Google Drive Automated
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSaveFolderArchitecture}
-                  disabled={isSavingFolderArch}
-                  className="px-3.5 py-1.5 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  style={{ borderRadius: "var(--radius)" }}
-                >
-                  {isSavingFolderArch ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : folderArchSaved ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Save className="w-3.5 h-3.5" />
-                  )}
-                  <span>{folderArchSaved ? "Saved Architecture!" : "Save Folder Architecture"}</span>
-                </button>
-              </div>
-
-              <p className="text-xs text-muted-foreground mb-3">
-                Configure the default folder architecture automatically generated inside Google Drive whenever a new Content ID folder is created.
-              </p>
-
-              {/* Future Access Architecture Notice */}
-              <div className="p-3 rounded-md bg-muted/30 border border-border/80 flex items-start gap-2.5 text-xs text-muted-foreground mb-4">
-                <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <div className="flex-1 space-y-0.5">
-                  <span className="font-semibold text-foreground">Future Role Access Integration:</span>
-                  <p className="text-[11px] leading-relaxed">
-                    When configuring Team & Roles in upcoming updates, you will be able to grant team members access to specific folders defined here, automatically managing their Google Drive permissions.
-                  </p>
-                </div>
-              </div>
-
-              {/* Quick Preset Templates */}
-              <div className="mb-4">
-                <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground mb-2">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Quick Presets:</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {FOLDER_ARCHITECTURE_PRESETS.map((preset) => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => handleApplyFolderPreset(preset.folders)}
-                      className="px-2.5 py-1 rounded text-xs border border-border bg-card hover:bg-muted/60 hover:border-primary/40 text-foreground transition-all flex items-center gap-1.5 cursor-pointer"
-                      style={{ borderRadius: "var(--radius)" }}
-                      title={preset.description}
-                    >
-                      <Folder className="w-3 h-3 text-amber-500" />
-                      <span className="font-medium">{preset.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Folder Architecture Builder List */}
-              <div className="space-y-2 mb-4">
-                {folderArchitecture.map((folder, idx) => {
-                  const isSubfolder = Boolean(folder.parent_id);
-                  const parentFolder = isSubfolder
-                    ? folderArchitecture.find((f) => f.id === folder.parent_id)
-                    : null;
-
-                  return (
-                    <div
-                      key={folder.id}
-                      className={`p-2.5 rounded-md border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs ${
-                        isSubfolder
-                          ? "ml-6 pl-4 border-l-2 border-l-amber-500/60 bg-muted/20 border-border/70"
-                          : "bg-muted/40 border-border"
-                      }`}
-                      style={{ borderRadius: "var(--radius)" }}
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {/* Drag / Reorder */}
-                        <div className="flex items-center gap-0.5 shrink-0">
+                    <div className="flex flex-wrap md:flex-nowrap items-center gap-2.5">
+                      {/* Reorder & Index */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex flex-col gap-0.5">
                           <button
                             type="button"
                             disabled={idx === 0}
-                            onClick={() => handleMoveFolder(idx, "up")}
-                            className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
-                            title="Move Up"
+                            onClick={() => handleMoveScriptColumn(idx, "up")}
+                            className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
+                            title="Move up"
                           >
                             <ArrowUp className="w-3 h-3" />
                           </button>
                           <button
                             type="button"
-                            disabled={idx === folderArchitecture.length - 1}
-                            onClick={() => handleMoveFolder(idx, "down")}
-                            className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
-                            title="Move Down"
+                            disabled={idx === scriptColumns.length - 1}
+                            onClick={() => handleMoveScriptColumn(idx, "down")}
+                            className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
+                            title="Move down"
                           >
                             <ArrowDown className="w-3 h-3" />
                           </button>
                         </div>
+                        <span className="font-mono text-muted-foreground w-5 text-center">
+                          {idx + 1}
+                        </span>
+                      </div>
 
-                        {/* Visual Folder Icon / Subfolder branch */}
-                        <div className="flex items-center gap-1 shrink-0">
-                          {isSubfolder && (
-                            <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/60" />
-                          )}
-                          <Folder className={`w-4 h-4 ${isSubfolder ? "text-amber-400" : "text-amber-500"}`} />
+                      {/* Name */}
+                      <div className="flex-1 min-w-[140px]">
+                        <input
+                          type="text"
+                          value={col.name}
+                          onChange={(e) =>
+                            handleUpdateScriptColField(col.id, "name", e.target.value)
+                          }
+                          placeholder="Column name..."
+                          className="w-full h-8 px-2.5 text-xs rounded-lg bg-background border border-border focus:outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      {/* Type */}
+                      <div className="w-28 shrink-0">
+                        <select
+                          value={col.type}
+                          onChange={(e) =>
+                            handleUpdateScriptColField(col.id, "type", e.target.value)
+                          }
+                          className="w-full h-8 px-2 text-xs rounded-lg bg-background border border-border focus:outline-none focus:border-primary cursor-pointer"
+                        >
+                          <option value="text">Text</option>
+                          <option value="dropdown">Dropdown</option>
+                        </select>
+                      </div>
+
+                      {/* Width */}
+                      <div className="w-20 shrink-0">
+                        <input
+                          type="text"
+                          value={col.width || ""}
+                          onChange={(e) =>
+                            handleUpdateScriptColField(col.id, "width", e.target.value)
+                          }
+                          placeholder="220px"
+                          className="w-full h-8 px-2 text-xs font-mono rounded-lg bg-background border border-border focus:outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      {/* Delete */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteScriptColumn(col.id)}
+                        disabled={scriptColumns.length <= 1}
+                        className="h-8 px-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-20 transition-colors cursor-pointer shrink-0"
+                        title="Delete column"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Dropdown Options Strip */}
+                    {col.type === "dropdown" && (
+                      <div className="pl-7 pt-2 border-t border-border/40 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-mono uppercase text-muted-foreground mr-1">
+                          Options:
+                        </span>
+                        {col.options?.map((opt) => (
+                          <span
+                            key={opt}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] bg-background border border-border"
+                          >
+                            <span>{opt}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDropdownOption(col.id, opt)}
+                              className="text-muted-foreground hover:text-destructive cursor-pointer"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </span>
+                        ))}
+                        <div className="inline-flex items-center gap-1 ml-auto">
+                          <input
+                            type="text"
+                            value={newOptionInputs[col.id] || ""}
+                            onChange={(e) =>
+                              setNewOptionInputs((prev) => ({
+                                ...prev,
+                                [col.id]: e.target.value,
+                              }))
+                            }
+                            onKeyDown={(e) =>
+                              e.key === "Enter" &&
+                              (e.preventDefault(), handleAddDropdownOption(col.id))
+                            }
+                            placeholder="Add option..."
+                            className="h-7 w-28 px-2 text-[11px] rounded-lg bg-background border border-border focus:outline-none focus:border-primary"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAddDropdownOption(col.id)}
+                            className="h-7 px-2 text-[11px] font-semibold bg-muted hover:bg-muted/80 rounded-lg border border-border cursor-pointer"
+                          >
+                            Add
+                          </button>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-                        {/* Folder Name Input */}
-                        <div className="flex-1 min-w-[160px] max-w-sm">
+          {/* 4. Google Drive Folder Architecture (Side-by-Side Builder + Live Tree) */}
+          <div className="card-theme rounded-2xl p-5 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-border/60">
+              <div>
+                <div className="flex items-center gap-2">
+                  <FolderTree className="w-4 h-4 text-amber-500" />
+                  <h3 className="font-bold text-sm">
+                    Default Content Folder Architecture
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                    Google Drive Sync
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Subfolder structure auto-created in Google Drive for every new Content
+                  ID in this series.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left (7 cols): Presets & Interactive Builder */}
+              <div className="lg:col-span-7 space-y-4">
+                {/* Quick Presets */}
+                <div>
+                  <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground mb-2">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Quick Presets:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {FOLDER_ARCHITECTURE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => handleApplyFolderPreset(preset.folders)}
+                        className="px-2.5 py-1.5 rounded-xl text-xs border border-border glass-subtle hover:border-primary/40 text-foreground transition-all flex items-center gap-1.5 cursor-pointer"
+                        title={preset.description}
+                      >
+                        <Folder className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="font-medium">{preset.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Folder Builder Rows */}
+                <div className="space-y-2">
+                  {folderArchitecture.map((folder, idx) => {
+                    const isSubfolder = Boolean(folder.parent_id);
+                    const parentFolder = isSubfolder
+                      ? folderArchitecture.find((f) => f.id === folder.parent_id)
+                      : null;
+
+                    return (
+                      <div
+                        key={folder.id}
+                        className={`p-2.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+                          isSubfolder
+                            ? "ml-6 pl-3.5 border-l-2 border-l-amber-500/60 bg-muted/20 border-border/70"
+                            : "glass-subtle border-border"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <button
+                              type="button"
+                              disabled={idx === 0}
+                              onClick={() => handleMoveFolder(idx, "up")}
+                              className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
+                              title="Move Up"
+                            >
+                              <ArrowUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={idx === folderArchitecture.length - 1}
+                              onClick={() => handleMoveFolder(idx, "down")}
+                              className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
+                              title="Move Down"
+                            >
+                              <ArrowDown className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isSubfolder && (
+                              <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/60" />
+                            )}
+                            <Folder
+                              className={`w-4 h-4 ${
+                                isSubfolder ? "text-amber-400" : "text-amber-500"
+                              }`}
+                            />
+                          </div>
+
                           <input
                             type="text"
                             value={folder.name}
                             onChange={(e) => handleRenameFolder(folder.id, e.target.value)}
                             placeholder="e.g. Raw_Footage"
-                            className="w-full h-8 px-2.5 text-xs font-mono rounded bg-background border border-border focus:outline-none focus:border-primary"
-                            style={{ borderRadius: "var(--radius)" }}
+                            className="flex-1 min-w-[140px] h-8 px-2.5 text-xs font-mono rounded-lg bg-background border border-border focus:outline-none focus:border-primary"
                           />
+
+                          {isSubfolder && (
+                            <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono bg-muted text-muted-foreground border border-border/60 shrink-0">
+                              in {parentFolder?.name || "Parent"}
+                            </span>
+                          )}
                         </div>
 
-                        {/* Parent Indicator Badge */}
-                        {isSubfolder && (
-                          <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono bg-muted text-muted-foreground border border-border/60 shrink-0">
-                            Inside: {parentFolder?.name || "Parent"}
-                          </span>
-                        )}
-                      </div>
+                        <div className="flex items-center gap-1 self-end sm:self-auto shrink-0">
+                          {!isSubfolder && (
+                            <button
+                              type="button"
+                              onClick={() => handleAddSubfolder(folder.id)}
+                              className="h-8 px-2.5 rounded-lg text-[11px] font-medium bg-muted/60 hover:bg-muted border border-border text-foreground flex items-center gap-1 cursor-pointer"
+                              title="Add subfolder inside this folder"
+                            >
+                              <FolderPlus className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Subfolder</span>
+                            </button>
+                          )}
 
-                      {/* Folder Actions */}
-                      <div className="flex items-center gap-1 self-end sm:self-auto shrink-0">
-                        {/* Add Subfolder Button (only on top-level folders) */}
-                        {!isSubfolder && (
                           <button
                             type="button"
-                            onClick={() => handleAddSubfolder(folder.id)}
-                            className="h-8 px-2.5 rounded text-[11px] font-medium bg-muted/60 hover:bg-muted border border-border text-foreground flex items-center gap-1 cursor-pointer transition-colors"
-                            style={{ borderRadius: "var(--radius)" }}
-                            title="Add subfolder inside this folder"
+                            onClick={() => handleDeleteFolder(folder.id)}
+                            disabled={folderArchitecture.length <= 1}
+                            className="h-8 px-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-20 cursor-pointer"
+                            title="Delete folder"
                           >
-                            <FolderPlus className="w-3.5 h-3.5 text-amber-500" />
-                            <span>+ Subfolder</span>
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                        )}
-
-                        {/* Delete Folder */}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteFolder(folder.id)}
-                          disabled={folderArchitecture.length <= 1}
-                          className="h-8 px-2 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-20 transition-colors cursor-pointer"
-                          title="Delete folder"
-                          style={{ borderRadius: "var(--radius)" }}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
 
-              {/* Add Top-Level Folder Control */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-6">
-                <div className="flex-1 max-w-xs">
+                {/* Add Top-Level Folder */}
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={newTopFolderInput}
@@ -2688,77 +2596,110 @@ export function ContentTypesTab() {
                       }
                     }}
                     placeholder="New folder name..."
-                    className="w-full h-8 px-2.5 text-xs font-mono rounded bg-background border border-border focus:outline-none focus:border-primary"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="flex-1 max-w-xs h-8 px-3 text-xs font-mono rounded-xl bg-background border border-border focus:outline-none focus:border-primary"
                   />
+                  <button
+                    type="button"
+                    onClick={() => handleAddTopFolder()}
+                    className="h-8 px-3 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 border border-border flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Top Folder</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleAddTopFolder()}
-                  className="px-3 py-1.5 rounded text-xs font-semibold bg-muted hover:bg-muted/80 border border-border flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                  style={{ borderRadius: "var(--radius)" }}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Top-Level Folder</span>
-                </button>
               </div>
 
-              {/* Live Google Drive Tree Visualizer */}
-              <div className="p-4 rounded-md bg-card/60 border border-border">
-                <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-foreground">
-                  <FolderTree className="w-3.5 h-3.5 text-primary" />
-                  <span>Generated Drive Architecture Preview</span>
+              {/* Right (5 cols): Live Drive Tree Preview */}
+              <div className="lg:col-span-5 space-y-3">
+                <div className="p-4 rounded-2xl glass-subtle border border-border">
+                  <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-foreground">
+                    <FolderTree className="w-3.5 h-3.5 text-primary" />
+                    <span>Live Google Drive Hierarchy</span>
+                  </div>
+                  <div className="bg-background/80 p-3.5 rounded-xl border border-border font-mono text-[11px] text-muted-foreground overflow-x-auto space-y-1.5">
+                    <div className="text-foreground font-semibold flex items-center gap-1.5">
+                      <Folder className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>
+                        Google Drive / ContentPipe /{" "}
+                        {selectedBrand ? `${selectedBrand.name} / ` : ""}
+                        {selectedType.name} /
+                      </span>
+                    </div>
+                    <div className="pl-4 text-foreground/90 font-medium flex items-center gap-1.5">
+                      <CornerDownRight className="w-3 h-3 text-muted-foreground/60 shrink-0" />
+                      <span>[ContentID - Title] /</span>
+                    </div>
+                    {folderArchitecture.map((f) => {
+                      const isSub = Boolean(f.parent_id);
+                      return (
+                        <div
+                          key={f.id}
+                          className={`flex items-center gap-1.5 ${
+                            isSub ? "pl-12 text-foreground/75" : "pl-8 text-foreground/85"
+                          }`}
+                        >
+                          <CornerDownRight className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                          <Folder className="w-3 h-3 text-amber-400 shrink-0" />
+                          <span className="font-semibold text-foreground">{f.name}/</span>
+                        </div>
+                      );
+                    })}
+                    <div className="pl-8 text-muted-foreground/60 italic text-[10px] pt-1">
+                      * Submissions &amp; final cuts live inside the project folder.
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-background/80 p-3 rounded border border-border font-mono text-[11px] text-muted-foreground overflow-x-auto space-y-1">
-                  <div className="text-foreground font-semibold flex items-center gap-1">
-                    <Folder className="w-3 h-3 text-amber-500" />
-                    <span>
-                      Google Drive / ContentPipe /{" "}
-                      {selectedBrand ? `${selectedBrand.name} / ` : ""}
-                      {selectedType.name} /
-                    </span>
-                  </div>
-                  <div className="pl-4 text-foreground/90 font-medium flex items-center gap-1">
-                    <CornerDownRight className="w-3 h-3 text-muted-foreground/60" />
-                    <span>[Content ID - Video Title] (Main Folder)</span>
-                  </div>
-                  {folderArchitecture.map((f) => {
-                    const isSub = Boolean(f.parent_id);
-                    return (
-                      <div
-                        key={f.id}
-                        className={`flex items-center gap-1.5 ${
-                          isSub ? "pl-12 text-foreground/75" : "pl-8 text-foreground/85"
-                        }`}
-                      >
-                        <CornerDownRight className="w-3 h-3 text-muted-foreground/50 shrink-0" />
-                        <Folder className="w-3 h-3 text-amber-400 shrink-0" />
-                        <span className="font-semibold text-foreground">{f.name}/</span>
-                      </div>
-                    );
-                  })}
-                  <div className="pl-8 text-muted-foreground/50 italic text-[10px] pt-1">
-                    * Submissions & final export cuts remain directly inside the Content project folder.
-                  </div>
+
+                <div className="p-3 rounded-xl glass-subtle border border-border/80 flex items-start gap-2 text-[11px] text-muted-foreground">
+                  <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <span>
+                    Per-folder access permissions can be configured for each team member in{" "}
+                    <strong className="text-foreground">Team &amp; Roles</strong>.
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Persistent Settings Footer Banner & Save Action */}
-          <div className="flex items-center justify-between p-4 rounded-2xl card-theme">
-            <span className="text-xs text-muted-foreground font-mono">
-              Changes apply instantly across your channel matrix.
-            </span>
+          {/* 5. Bottom Unified Save Bar */}
+          <div className="card-theme rounded-2xl p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-xs font-mono text-muted-foreground flex items-center gap-2">
+              {hasUnsavedChanges ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                  <span className="text-amber-500 font-semibold">
+                    You have unsaved changes to workflow, script columns, or folders.
+                  </span>
+                </>
+              ) : saveSuccess ? (
+                <span className="text-emerald-500 font-semibold">
+                  All changes saved to {selectedType.name}.
+                </span>
+              ) : (
+                <span>All changes synced for {selectedType.name}.</span>
+              )}
+            </div>
 
             <button
               type="button"
-              onClick={() => openEditModal(selectedType)}
-              className="h-9 px-5 rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 transition-all cursor-pointer"
-              style={{ borderRadius: "var(--radius)" }}
+              onClick={handleSaveAllChanges}
+              disabled={!hasUnsavedChanges || isSavingAll}
+              className={`px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-xs shrink-0 ${
+                saveSuccess
+                  ? "bg-emerald-600 text-white border border-emerald-600"
+                  : hasUnsavedChanges
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90 border border-primary cursor-pointer ring-2 ring-primary/20"
+                  : "bg-muted text-muted-foreground border border-border opacity-50 cursor-not-allowed"
+              }`}
             >
-              <Save className="w-3.5 h-3.5" />
-              <span>Save Preferences</span>
+              {isSavingAll ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : saveSuccess ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>{saveSuccess ? "Saved!" : "Save Changes"}</span>
             </button>
           </div>
         </div>
@@ -2777,13 +2718,16 @@ export function ContentTypesTab() {
               <X className="w-4 h-4" />
             </button>
 
-            <h3 className="text-lg font-bold font-display mb-1">Create New Content Series</h3>
+            <h3 className="text-lg font-bold font-display mb-1">
+              Create New Content Series
+            </h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Set up a distinct series pipeline with its own brand, cadence, auto-numbering, and default workflow.
+              Set up a distinct series pipeline with its own brand, cadence, auto-numbering,
+              and default workflow.
             </p>
 
             {typeFormError && (
-              <div className="mb-3 p-2.5 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive text-xs font-mono">
+              <div className="mb-3 p-2.5 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive text-xs font-mono">
                 {typeFormError}
               </div>
             )}
@@ -2794,8 +2738,7 @@ export function ContentTypesTab() {
                 <select
                   value={typeBrandId}
                   onChange={(e) => setTypeBrandId(e.target.value)}
-                  className="w-full h-9 px-2.5 rounded bg-background border border-border focus:outline-none focus:border-primary cursor-pointer"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-9 px-2.5 rounded-xl bg-background border border-border focus:outline-none focus:border-primary cursor-pointer"
                 >
                   {brands.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -2813,8 +2756,7 @@ export function ContentTypesTab() {
                   placeholder="e.g. Long-Form, Podcast, Shorts"
                   value={typeName}
                   onChange={(e) => setTypeName(e.target.value)}
-                  className="w-full h-9 px-3 rounded bg-background border border-border focus:outline-none focus:border-primary"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-9 px-3 rounded-xl bg-background border border-border focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -2826,8 +2768,7 @@ export function ContentTypesTab() {
                     placeholder="e.g. LF-, POD-"
                     value={typePrefix}
                     onChange={(e) => setTypePrefix(e.target.value)}
-                    className="w-full h-9 px-3 rounded bg-background border border-border focus:outline-none focus:border-primary font-mono"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="w-full h-9 px-3 rounded-xl bg-background border border-border focus:outline-none focus:border-primary font-mono"
                   />
                 </div>
                 <div>
@@ -2837,8 +2778,7 @@ export function ContentTypesTab() {
                     placeholder="e.g. -HD, -V"
                     value={typeSuffix}
                     onChange={(e) => setTypeSuffix(e.target.value)}
-                    className="w-full h-9 px-3 rounded bg-background border border-border focus:outline-none focus:border-primary font-mono"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="w-full h-9 px-3 rounded-xl bg-background border border-border focus:outline-none focus:border-primary font-mono"
                   />
                 </div>
               </div>
@@ -2848,8 +2788,7 @@ export function ContentTypesTab() {
                 <select
                   value={typeCadence}
                   onChange={(e) => setTypeCadence(e.target.value as any)}
-                  className="w-full h-9 px-2 rounded bg-background border border-border focus:outline-none focus:border-primary"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-9 px-2.5 rounded-xl bg-background border border-border focus:outline-none focus:border-primary cursor-pointer"
                 >
                   <option value="weekly">Weekly (1 Week)</option>
                   <option value="biweekly">Bi-weekly (2 Weeks)</option>
@@ -2868,15 +2807,13 @@ export function ContentTypesTab() {
                 <button
                   type="button"
                   onClick={() => setIsNewTypeModalOpen(false)}
-                  className="px-4 py-2 rounded text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border cursor-pointer"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Create Content Series</span>
@@ -2900,13 +2837,15 @@ export function ContentTypesTab() {
               <X className="w-4 h-4" />
             </button>
 
-            <h3 className="text-lg font-bold font-display mb-1">Edit {selectedType.name} Configuration</h3>
+            <h3 className="text-lg font-bold font-display mb-1">
+              Edit {selectedType.name} Configuration
+            </h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Update brand assignment, cadence, open horizon window, and ID prefix.
+              Update brand assignment, cadence, upload days, and ID prefix.
             </p>
 
             {typeFormError && (
-              <div className="mb-3 p-2.5 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive text-xs font-mono">
+              <div className="mb-3 p-2.5 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive text-xs font-mono">
                 {typeFormError}
               </div>
             )}
@@ -2917,8 +2856,7 @@ export function ContentTypesTab() {
                 <select
                   value={typeBrandId}
                   onChange={(e) => setTypeBrandId(e.target.value)}
-                  className="w-full h-9 px-2.5 rounded bg-background border border-border focus:outline-none focus:border-primary cursor-pointer"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-9 px-2.5 rounded-xl bg-background border border-border focus:outline-none focus:border-primary cursor-pointer"
                 >
                   {brands.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -2935,8 +2873,7 @@ export function ContentTypesTab() {
                   required
                   value={typeName}
                   onChange={(e) => setTypeName(e.target.value)}
-                  className="w-full h-9 px-3 rounded bg-background border border-border focus:outline-none focus:border-primary"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-9 px-3 rounded-xl bg-background border border-border focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -2947,8 +2884,7 @@ export function ContentTypesTab() {
                     type="text"
                     value={typePrefix}
                     onChange={(e) => setTypePrefix(e.target.value)}
-                    className="w-full h-9 px-3 rounded bg-background border border-border focus:outline-none focus:border-primary font-mono"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="w-full h-9 px-3 rounded-xl bg-background border border-border focus:outline-none focus:border-primary font-mono"
                   />
                 </div>
                 <div>
@@ -2957,8 +2893,7 @@ export function ContentTypesTab() {
                     type="text"
                     value={typeSuffix}
                     onChange={(e) => setTypeSuffix(e.target.value)}
-                    className="w-full h-9 px-3 rounded bg-background border border-border focus:outline-none focus:border-primary font-mono"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="w-full h-9 px-3 rounded-xl bg-background border border-border focus:outline-none focus:border-primary font-mono"
                   />
                 </div>
               </div>
@@ -2968,8 +2903,7 @@ export function ContentTypesTab() {
                 <select
                   value={typeCadence}
                   onChange={(e) => setTypeCadence(e.target.value as any)}
-                  className="w-full h-9 px-2 rounded bg-background border border-border focus:outline-none focus:border-primary"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-9 px-2.5 rounded-xl bg-background border border-border focus:outline-none focus:border-primary cursor-pointer"
                 >
                   <option value="weekly">Weekly (1 Week)</option>
                   <option value="biweekly">Bi-weekly (2 Weeks)</option>
@@ -2988,15 +2922,13 @@ export function ContentTypesTab() {
                 <button
                   type="button"
                   onClick={() => setIsEditTypeModalOpen(false)}
-                  className="px-4 py-2 rounded text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border cursor-pointer"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Update Content Series</span>
@@ -3008,7 +2940,7 @@ export function ContentTypesTab() {
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* Brand Modal: Create / Edit Brand (.glass-floating)            */}
+      {/* Brand Modal: Create / Edit Brand                              */}
       {/* ------------------------------------------------------------- */}
       {(isNewBrandModalOpen || (isEditBrandModalOpen && selectedBrand)) && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -3031,7 +2963,9 @@ export function ContentTypesTab() {
                 style={{ backgroundColor: brandColor }}
               />
               <h3 className="text-lg font-bold font-display">
-                {isEditBrandModalOpen ? `Edit Brand: ${selectedBrand?.name}` : "Create New Brand"}
+                {isEditBrandModalOpen
+                  ? `Edit Brand: ${selectedBrand?.name}`
+                  : "Create New Brand"}
               </h3>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
@@ -3041,7 +2975,7 @@ export function ContentTypesTab() {
             </p>
 
             {brandFormError && (
-              <div className="mb-3 p-2.5 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive text-xs font-mono">
+              <div className="mb-3 p-2.5 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive text-xs font-mono">
                 {brandFormError}
               </div>
             )}
@@ -3159,18 +3093,21 @@ export function ContentTypesTab() {
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* Brand Modal: Delete Confirmation (.glass-floating)            */}
+      {/* Brand Modal: Delete Confirmation                              */}
       {/* ------------------------------------------------------------- */}
       {deleteConfirmBrand && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-floating w-full max-w-md p-6 rounded-2xl border border-destructive/40 relative">
             <div className="flex items-center gap-2 text-destructive mb-2">
               <AlertTriangle className="w-5 h-5 shrink-0" />
-              <h3 className="font-bold text-base">Delete Brand: {deleteConfirmBrand.name}</h3>
+              <h3 className="font-bold text-base">
+                Delete Brand: {deleteConfirmBrand.name}
+              </h3>
             </div>
 
             <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-              Deleting this Brand will permanently delete all Content Series and items inside it from the database.
+              Deleting this Brand will permanently delete all Content Series and items
+              inside it from the database.
             </p>
 
             <label className="flex items-start gap-2.5 p-3 rounded-xl bg-destructive/10 border border-destructive/25 cursor-pointer mb-4">
@@ -3181,9 +3118,12 @@ export function ContentTypesTab() {
                 className="mt-0.5 accent-destructive cursor-pointer"
               />
               <span className="text-xs text-foreground leading-snug">
-                <strong className="text-destructive">Also delete all data from Google Drive &amp; database</strong>
+                <strong className="text-destructive">
+                  Also delete all data from Google Drive &amp; database
+                </strong>
                 <span className="block text-[11px] text-muted-foreground mt-0.5">
-                  Permanently deletes all Drive folders, raw footage, drafts, final exports, and Brand ideas. This cannot be undone.
+                  Permanently deletes all Drive folders, raw footage, drafts, final
+                  exports, and Brand ideas. This cannot be undone.
                 </span>
               </span>
             </label>
@@ -3219,7 +3159,9 @@ export function ContentTypesTab() {
                   <Trash2 className="w-3.5 h-3.5" />
                 )}
                 <span>
-                  {deleteBrandNeedsConfirm ? "Confirm & Delete Everything" : "Delete Brand"}
+                  {deleteBrandNeedsConfirm
+                    ? "Confirm & Delete Everything"
+                    : "Delete Brand"}
                 </span>
               </button>
             </div>
@@ -3232,17 +3174,18 @@ export function ContentTypesTab() {
       {/* ------------------------------------------------------------- */}
       {isNewTaskModalOpen && selectedType && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-modal w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 rounded-2xl relative">
+          <div className="glass-floating w-full max-w-md p-6 rounded-2xl relative border border-border">
             <button
               onClick={() => setIsNewTaskModalOpen(false)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
 
             <h3 className="text-lg font-bold font-display mb-1">Insert Workflow Task</h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Inserted into <strong>{selectedType.name}</strong> pipeline right before Publish.
+              Inserted into <strong>{selectedType.name}</strong> pipeline right before
+              Publish.
             </p>
 
             <form onSubmit={handleAddTask} className="space-y-4 text-xs">
@@ -3259,14 +3202,13 @@ export function ContentTypesTab() {
                     const def = DEFAULT_TASK_HEX_COLORS[val.toLowerCase().trim()];
                     if (def) setNewTaskColor(def);
                   }}
-                  className="w-full h-9 px-3 rounded bg-background border border-border focus:outline-none focus:border-primary"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-9 px-3 rounded-xl bg-background border border-border focus:outline-none focus:border-primary"
                 />
               </div>
 
               <div>
                 <label className="font-semibold block mb-1">
-                  Days Needed For This Step ($n$)
+                  Days Needed For This Step (n)
                 </label>
                 <input
                   type="number"
@@ -3275,27 +3217,30 @@ export function ContentTypesTab() {
                   required
                   value={newTaskOffset}
                   onChange={(e) => setNewTaskOffset(Number(e.target.value))}
-                  className="w-full h-9 px-3 rounded bg-background border border-border focus:outline-none focus:border-primary font-mono"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-9 px-3 rounded-xl bg-background border border-border focus:outline-none focus:border-primary font-mono"
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Pushes earlier tasks back by $n$ days according to worst-case math ($P - \sum n$).
+                  Pushes earlier tasks back by n days according to worst-case math (P - sum
+                  of n).
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold block mb-1">Team 1st Sub Due (Days)</label>
+                  <label className="font-semibold block mb-1">
+                    Team 1st Sub Due (Days)
+                  </label>
                   <input
                     type="number"
                     min="0"
                     max="30"
                     value={newTaskBuffer1}
                     onChange={(e) => setNewTaskBuffer1(Number(e.target.value))}
-                    className="w-full h-9 px-3 rounded bg-background border border-border font-mono text-xs"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="w-full h-9 px-3 rounded-xl bg-background border border-border font-mono text-xs"
                   />
-                  <span className="text-[10px] text-muted-foreground">Days prior to worst-case</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Days prior to worst-case
+                  </span>
                 </div>
                 <div>
                   <label className="font-semibold block mb-1">Team Final Sub (Days)</label>
@@ -3305,20 +3250,18 @@ export function ContentTypesTab() {
                     max="30"
                     value={newTaskBufferFinal}
                     onChange={(e) => setNewTaskBufferFinal(Number(e.target.value))}
-                    className="w-full h-9 px-3 rounded bg-background border border-border font-mono text-xs"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="w-full h-9 px-3 rounded-xl bg-background border border-border font-mono text-xs"
                   />
-                  <span className="text-[10px] text-muted-foreground">Revision safety buffer</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Revision safety buffer
+                  </span>
                 </div>
               </div>
 
               <div>
                 <label className="font-semibold block mb-1.5">Color / Swatch</label>
-                <div className="flex items-center gap-3 p-2.5 rounded bg-muted/40 border border-border">
-                  <TaskColorSwatch
-                    color={newTaskColor}
-                    onChange={setNewTaskColor}
-                  />
+                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/40 border border-border">
+                  <TaskColorSwatch color={newTaskColor} onChange={setNewTaskColor} />
                   <div className="flex flex-wrap items-center gap-1.5">
                     {PRESET_SWATCH_COLORS.map((p) => (
                       <button
@@ -3341,42 +3284,17 @@ export function ContentTypesTab() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-muted/30 border border-border">
-                <PwsTaskMetadataControls
-                  compact
-                  values={{
-                    durationMins: newTaskDurationMins,
-                    setupBufferMins: newTaskSetupBufferMins,
-                    isSplittable: newTaskIsSplittable,
-                    minSplitChunkMins: newTaskMinSplitChunkMins,
-                    resistance: newTaskResistance,
-                    eligibleZoneIds: newTaskEligibleZoneIds,
-                  }}
-                  zones={scheduleZones}
-                  onChange={(partial) => {
-                    if (partial.durationMins !== undefined) setNewTaskDurationMins(partial.durationMins);
-                    if (partial.setupBufferMins !== undefined) setNewTaskSetupBufferMins(partial.setupBufferMins);
-                    if (partial.isSplittable !== undefined) setNewTaskIsSplittable(partial.isSplittable);
-                    if (partial.minSplitChunkMins !== undefined) setNewTaskMinSplitChunkMins(partial.minSplitChunkMins);
-                    if (partial.resistance !== undefined) setNewTaskResistance(partial.resistance);
-                    if (partial.eligibleZoneIds !== undefined) setNewTaskEligibleZoneIds(partial.eligibleZoneIds);
-                  }}
-                />
-              </div>
-
               <div className="pt-3 border-t border-border flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsNewTaskModalOpen(false)}
-                  className="px-4 py-2 rounded text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Insert Task</span>
@@ -3392,7 +3310,7 @@ export function ContentTypesTab() {
       {/* ------------------------------------------------------------- */}
       {hideConfirmTask && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-modal w-full max-w-md p-6 rounded-2xl">
+          <div className="glass-floating w-full max-w-md p-6 rounded-2xl border border-border">
             <div className="flex items-center gap-2 text-status-review mb-3">
               <AlertTriangle className="w-5 h-5" />
               <h3 className="font-bold text-base">Double Confirmation: Hide Task</h3>
@@ -3401,22 +3319,22 @@ export function ContentTypesTab() {
             {hideStep === 1 && (
               <>
                 <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                  Per SPEC.md Section 3.2 D: Hiding <strong>{hideConfirmTask.task_name}</strong> will remove its column from the Main Tracker and bypass predecessor-successor blocking rules. Saved history is safely preserved.
+                  Hiding <strong>{hideConfirmTask.task_name}</strong> will remove its column
+                  from the Main Tracker and bypass predecessor-successor blocking rules. Saved
+                  history is safely preserved.
                 </p>
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setHideConfirmTask(null)}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={() => setHideStep(2)}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-status-review text-status-review-foreground hover:opacity-90 flex items-center gap-1"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-status-review text-status-review-foreground hover:opacity-90 flex items-center gap-1 cursor-pointer"
                   >
                     <span>Proceed to Confirm (1/2)</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -3428,24 +3346,23 @@ export function ContentTypesTab() {
             {hideStep === 2 && (
               <>
                 <p className="text-xs text-foreground font-semibold leading-relaxed mb-4">
-                  Final Check (Step 2/2): Are you completely sure you want to hide <strong>{hideConfirmTask.task_name}</strong> from open workflows?
+                  Final Check (Step 2/2): Are you completely sure you want to hide{" "}
+                  <strong>{hideConfirmTask.task_name}</strong> from open workflows?
                 </p>
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setHideConfirmTask(null)}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={executeHideTask}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer"
                   >
-                    <span>Confirm & Hide Task</span>
+                    <span>Confirm &amp; Hide Task</span>
                   </button>
                 </div>
               </>
@@ -3459,7 +3376,7 @@ export function ContentTypesTab() {
       {/* ------------------------------------------------------------- */}
       {deleteConfirmTask && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-modal w-full max-w-md p-6 rounded-2xl border-destructive/50">
+          <div className="glass-floating w-full max-w-md p-6 rounded-2xl border border-destructive/50">
             <div className="flex items-center gap-2 text-destructive mb-3">
               <AlertTriangle className="w-5 h-5" />
               <h3 className="font-bold text-base">Triple Confirmation: Delete Task</h3>
@@ -3468,22 +3385,22 @@ export function ContentTypesTab() {
             {deleteStep === 1 && (
               <>
                 <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                  Per SPEC.md Section 3.2 D: Deleting <strong>{deleteConfirmTask.task_name}</strong> will <strong>permanently erase</strong> all completion records, submission histories, and comments linked to this step across all videos.
+                  Deleting <strong>{deleteConfirmTask.task_name}</strong> will{" "}
+                  <strong>permanently erase</strong> all completion records, submission
+                  histories, and comments linked to this step across all videos.
                 </p>
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setDeleteConfirmTask(null)}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-muted hover:bg-muted/80"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteStep(2)}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-destructive/20 text-destructive hover:bg-destructive/30 flex items-center gap-1"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-destructive/20 text-destructive hover:bg-destructive/30 flex items-center gap-1 cursor-pointer"
                   >
                     <span>I understand (Step 1/3)</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -3494,23 +3411,22 @@ export function ContentTypesTab() {
 
             {deleteStep === 2 && (
               <>
-                <div className="p-3 rounded bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold mb-4">
-                  ⚠️ Irreversible Data Loss: All historical team approval timestamps for &quot;{deleteConfirmTask.task_name}&quot; will be purged.
+                <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold mb-4">
+                  Irreversible Data Loss: All historical team approval timestamps for &quot;
+                  {deleteConfirmTask.task_name}&quot; will be purged.
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setDeleteConfirmTask(null)}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-muted hover:bg-muted/80"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteStep(3)}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 flex items-center gap-1"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 flex items-center gap-1 cursor-pointer"
                   >
                     <span>Proceed to Final Gate (Step 2/3)</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -3522,22 +3438,22 @@ export function ContentTypesTab() {
             {deleteStep === 3 && (
               <>
                 <p className="text-xs font-bold text-destructive leading-relaxed mb-4">
-                  Final Authorization (Step 3/3): Permanently destroy task &quot;{deleteConfirmTask.task_name}&quot; and recalculate target dates for downstream tasks?
+                  Final Authorization (Step 3/3): Permanently destroy task &quot;
+                  {deleteConfirmTask.task_name}&quot; and recalculate target dates for
+                  downstream tasks?
                 </p>
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setDeleteConfirmTask(null)}
-                    className="px-3.5 py-1.5 rounded text-xs font-semibold bg-muted hover:bg-muted/80"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 cursor-pointer"
                   >
                     Abort
                   </button>
                   <button
                     type="button"
                     onClick={executeDeleteTask}
-                    className="px-4 py-1.5 rounded text-xs font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 flex items-center gap-1.5"
-                    style={{ borderRadius: "var(--radius)" }}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 flex items-center gap-1.5 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Permanently Erase Task</span>
@@ -3548,6 +3464,7 @@ export function ContentTypesTab() {
           </div>
         </div>
       )}
+
       {/* Publish Dates Organizer Modal (Triggered automatically when Cadence changes) */}
       {isOrganizerModalOpen && organizerTargetType && (
         <PublishDatesOrganizerModal
@@ -3558,7 +3475,11 @@ export function ContentTypesTab() {
           }}
           contentType={organizerTargetType}
           onOrganized={() => {
-            fetchContentTypes();
+            fetchContentTypes(
+              selectedBrand?.id || null,
+              organizerTargetType?.id || selectedType?.id || null,
+              { silent: true }
+            );
           }}
           isTriggeredFromSettings={true}
         />

@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyPermission } from "@/lib/api-guard";
-import {
-  extractWorkflowTaskPwsData,
-  serializeWorkflowTask,
-} from "@/lib/schedule-seed";
 
 export async function PUT(
   req: NextRequest,
@@ -38,8 +34,6 @@ export async function PUT(
       existing.task_name.toLowerCase() === "ideation" ||
       existing.task_name.toLowerCase() === "publish";
 
-    const pwsUpdate = extractWorkflowTaskPwsData(body, true);
-
     const updated = await prisma.workflowTask.update({
       where: { id },
       data: {
@@ -49,11 +43,10 @@ export async function PUT(
         team_final_buffer_days: team_final_buffer_days !== undefined ? Number(team_final_buffer_days) : undefined,
         is_hidden: isEndpoint ? false : (is_hidden !== undefined ? Boolean(is_hidden) : undefined),
         color: color !== undefined ? color : undefined,
-        ...pwsUpdate,
       },
     });
 
-    return NextResponse.json(serializeWorkflowTask(updated));
+    return NextResponse.json(updated);
   } catch (error) {
     console.error("Error updating workflow task:", error);
     return NextResponse.json(

@@ -17,12 +17,6 @@ export interface WorkflowTaskDefinition {
   automation_trigger?: string | null;
   automation_role_id?: string | null;
   require_closure_link?: boolean;
-  durationMins?: number;
-  setupBufferMins?: number;
-  isSplittable?: boolean;
-  minSplitChunkMins?: number;
-  resistance?: "LOW" | "MEDIUM" | "HIGH" | string;
-  eligibleZoneIds?: string[] | string;
 }
 
 export interface CalculatedTaskDates {

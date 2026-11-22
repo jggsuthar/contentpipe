@@ -93,12 +93,6 @@ model WorkflowTask {
   automation_trigger    String?      // "script_studio" | "drive_raw_footage" | "content_submission"
   automation_role_id    String?      // Specific Role ID whose submission triggers this automation
   require_closure_link  Boolean      @default(false)
-  durationMins          Int          @default(60)
-  setupBufferMins       Int          @default(15)
-  isSplittable          Boolean      @default(false)
-  minSplitChunkMins     Int          @default(30)
-  resistance            String       @default("MEDIUM") // "LOW" | "MEDIUM" | "HIGH"
-  eligibleZoneIds       String       @default("[]") // JSON array of ScheduleZone IDs for 'OR' placement logic
 
   content_type          ContentType  @relation(fields: [content_type_id], references: [id], onDelete: Cascade)
 
@@ -111,12 +105,6 @@ model MiscTask {
   id                    String       @id @default(cuid())
   content_type_id       String
   task_name             String
-  durationMins          Int          @default(30)
-  setupBufferMins       Int          @default(0)
-  isSplittable          Boolean      @default(false)
-  minSplitChunkMins     Int          @default(15)
-  resistance            String       @default("LOW") // "LOW" | "MEDIUM" | "HIGH"
-  eligibleZoneIds       String       @default("[]") // JSON array of ScheduleZone IDs for 'OR' placement logic
 
   content_type          ContentType  @relation(fields: [content_type_id], references: [id], onDelete: Cascade)
 
@@ -280,97 +268,4 @@ model CreatorSettings {
   updated_at                 DateTime @updatedAt
 
   @@map("creator_settings")
-}
-
-// -------------------------------------------------------------
-// 9. Flexible PWS-Powered Scheduling System
-// -------------------------------------------------------------
-model ScheduleZone {
-  id          String           @id @default(cuid())
-  userId      String           @default("creator")
-  name        String
-  color       String
-  icon        String           @default("Briefcase")
-  orderIndex  Int              @default(0)
-
-  weeklySlots WeeklyZoneSlot[]
-
-  @@index([userId])
-  @@map("schedule_zones")
-}
-
-model WeeklyZoneSlot {
-  id          String       @id @default(cuid())
-  userId      String       @default("creator")
-  zoneId      String
-  dayOfWeek   Int          // 0 = MON ... 6 = SUN
-  startMinute Int          // 0..1440 (e.g. 540 = 09:00)
-  endMinute   Int
-
-  zone        ScheduleZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-
-  @@index([userId, dayOfWeek])
-  @@index([zoneId])
-  @@map("weekly_zone_slots")
-}
-
-model WeeklyDayBounds {
-  id              String @id @default(cuid())
-  userId          String @default("creator")
-  dayOfWeek       Int    // 0 = MON ... 6 = SUN
-  workStartMinute Int    @default(480)  // 08:00 default: 0..workStartMinute is Top NO WORK ZONE
-  workEndMinute   Int    @default(1080) // 18:00 default: workEndMinute..1440 is Bottom NO WORK ZONE
-
-  @@unique([userId, dayOfWeek])
-  @@index([userId])
-  @@map("weekly_day_bounds")
-}
-
-model CalendarDateOverride {
-  id              String  @id @default(cuid())
-  userId          String  @default("creator")
-  dateString      String  // "YYYY-MM-DD"
-  isHoliday       Boolean @default(false)
-  holidayLabel    String?
-  customSlotsJson String? // Optional JSON override of slots for partial days or overtime
-
-  @@unique([userId, dateString])
-  @@map("calendar_date_overrides")
-}
-
-model PersonalTodo {
-  id                String   @id @default(cuid())
-  userId            String   @default("creator")
-  title             String
-  durationMins      Int      @default(30)
-  setupBufferMins   Int      @default(0)
-  resistance        String   @default("LOW")
-  isSplittable      Boolean  @default(false)
-  minSplitChunkMins Int      @default(15)
-  eligibleZoneIds   String   @default("[]") // JSON array of ScheduleZone IDs ('OR' logic)
-  targetDate        String?  // "YYYY-MM-DD"
-  status            String   @default("pending") // "pending" | "done"
-  createdAt         DateTime @default(now())
-
-  @@index([userId, status])
-  @@map("personal_todos")
-}
-
-model ScheduledAllocation {
-  id                     String  @id @default(cuid())
-  userId                 String  @default("creator")
-  sourceType             String  // "workflow_task" | "misc_task" | "action_item" | "personal_todo"
-  sourceId               String  // ID of TaskInstance, MiscTaskInstance, ActionItem, or PersonalTodo
-  dateString             String  // "YYYY-MM-DD"
-  startMinute            Int
-  endMinute              Int
-  setupMinsUsed          Int     @default(0)
-  zoneId                 String
-  isPinned               Boolean @default(false)
-  isVacationPreScheduled Boolean @default(false)
-  originalTargetDate     String?
-
-  @@index([userId, dateString])
-  @@index([sourceType, sourceId])
-  @@map("scheduled_allocations")
 }

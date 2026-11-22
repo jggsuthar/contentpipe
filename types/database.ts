@@ -174,7 +174,6 @@ export interface DbContentType {
 
 export type TaskUpdateMode = "manual" | "automatic";
 export type AutomationTrigger = "script_studio" | "drive_raw_footage" | "content_submission";
-export type ResistanceLevel = "LOW" | "MEDIUM" | "HIGH";
 
 export interface DbWorkflowTask {
   id: string;
@@ -190,81 +189,9 @@ export interface DbWorkflowTask {
   automation_trigger?: AutomationTrigger | null;
   automation_role_id?: string | null;
   require_closure_link?: boolean;
-  durationMins: number;
-  setupBufferMins: number;
-  isSplittable: boolean;
-  minSplitChunkMins: number;
-  resistance: ResistanceLevel;
-  eligibleZoneIds: string[];
 }
 
 export type WorkflowTask = DbWorkflowTask;
-
-export interface DbScheduleZone {
-  id: string;
-  userId: string;
-  name: string;
-  color: string;
-  icon: string;
-  orderIndex: number;
-  weeklySlots?: DbWeeklyZoneSlot[];
-}
-
-export interface DbWeeklyZoneSlot {
-  id: string;
-  userId: string;
-  zoneId: string;
-  dayOfWeek: number; // 0 = MON ... 6 = SUN
-  startMinute: number;
-  endMinute: number;
-}
-
-export interface DbWeeklyDayBounds {
-  id?: string;
-  userId: string;
-  dayOfWeek: number; // 0 = MON ... 6 = SUN
-  workStartMinute: number; // Default 480 (8:00 AM)
-  workEndMinute: number;   // Default 1080 (6:00 PM)
-}
-
-export interface DbCalendarDateOverride {
-  id: string;
-  userId: string;
-  dateString: string;
-  isHoliday: boolean;
-  holidayLabel: string | null;
-  customSlotsJson: string | null;
-}
-
-export interface DbPersonalTodo {
-  id: string;
-  userId: string;
-  title: string;
-  durationMins: number;
-  setupBufferMins: number;
-  resistance: ResistanceLevel;
-  isSplittable: boolean;
-  minSplitChunkMins: number;
-  eligibleZoneIds: string[];
-  targetDate: string | null;
-  status: "pending" | "done";
-  createdAt: Date | string;
-}
-
-export interface DbScheduledAllocation {
-  id: string;
-  userId: string;
-  sourceType: "workflow_task" | "misc_task" | "action_item" | "personal_todo";
-  sourceId: string;
-  dateString: string;
-  startMinute: number;
-  endMinute: number;
-  setupMinsUsed: number;
-  zoneId: string;
-  isPinned: boolean;
-  isVacationPreScheduled: boolean;
-  originalTargetDate: string | null;
-}
 
 export interface DbMiscTask {
   id: string;

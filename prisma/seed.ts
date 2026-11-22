@@ -1,5 +1,4 @@
 import { PrismaClient } from "@prisma/client";
-import { ensureDefaultScheduleZonesForUser } from "../lib/schedule-seed";
 
 const prisma = new PrismaClient();
 
@@ -187,10 +186,6 @@ async function main() {
   });
 
   console.log("✅ Seeded sample Idea Bank card.\n");
-
-  // 7. Seed default PWS ScheduleZone & WeeklyZoneSlot records if none exist
-  await ensureDefaultScheduleZonesForUser("creator");
-  console.log("✅ Ensured default PWS ScheduleZones & WeeklyZoneSlots for creator.\n");
 
   console.log("✨ Seeding completed successfully!\n");
 }

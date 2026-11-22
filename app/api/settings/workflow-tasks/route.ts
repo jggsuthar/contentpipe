@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyPermission } from "@/lib/api-guard";
-import {
-  extractWorkflowTaskPwsData,
-  serializeWorkflowTask,
-} from "@/lib/schedule-seed";
 
 export async function POST(req: NextRequest) {
   const guard = await verifyPermission("settings:manage_workflows");
@@ -62,7 +58,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Create the new task right before Publish
-    const pwsData = extractWorkflowTaskPwsData(body, false);
     const created = await prisma.workflowTask.create({
       data: {
         content_type_id,
@@ -79,11 +74,10 @@ export async function POST(req: NextRequest) {
           ? (body.automation_role_id || null)
           : null,
         require_closure_link: Boolean(body.require_closure_link),
-        ...pwsData,
       },
     });
 
-    return NextResponse.json(serializeWorkflowTask(created));
+    return NextResponse.json(created);
   } catch (error) {
     console.error("Error creating workflow task:", error);
     return NextResponse.json(
@@ -112,12 +106,6 @@ export async function PUT(req: NextRequest) {
         team_final_buffer_days?: number;
         is_hidden?: boolean;
         color?: string | null;
-        durationMins?: number;
-        setupBufferMins?: number;
-        isSplittable?: boolean;
-        minSplitChunkMins?: number;
-        resistance?: string;
-        eligibleZoneIds?: string[] | string;
       }>;
     };
 
@@ -135,7 +123,6 @@ export async function PUT(req: NextRequest) {
           const isEndpoint =
             task.task_name?.toLowerCase() === "ideation" ||
             task.task_name?.toLowerCase() === "publish";
-          const pwsUpdate = extractWorkflowTaskPwsData(task as Record<string, unknown>, true);
 
           return prisma.workflowTask.update({
             where: { id: task.id },
@@ -157,7 +144,6 @@ export async function PUT(req: NextRequest) {
                 ? ((task as any).automation_role_id || null)
                 : null,
               require_closure_link: (task as any).require_closure_link !== undefined ? Boolean((task as any).require_closure_link) : undefined,
-              ...pwsUpdate,
             },
           });
         })
@@ -168,7 +154,7 @@ export async function PUT(req: NextRequest) {
         orderBy: { sequence_order: "asc" },
       });
 
-      return NextResponse.json(updatedTasks.map(serializeWorkflowTask));
+      return NextResponse.json(updatedTasks);
     }
 
     // 2. Legacy Reorder with task_ids

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyPermission } from "@/lib/api-guard";
 import { ensureDefaultBrandAndBackfill } from "@/lib/brand-helpers";
-import { serializeWorkflowTask } from "@/lib/schedule-seed";
 
 export async function GET(req: NextRequest) {
   const guard = await verifyPermission("settings:manage_content_types");
@@ -37,7 +36,6 @@ export async function GET(req: NextRequest) {
       default_folder_architecture: t.default_folder_architecture
         ? JSON.parse(t.default_folder_architecture)
         : [{ id: "fld_raw", name: "Raw_Footage", parent_id: null }],
-      workflow_tasks: t.workflow_tasks.map(serializeWorkflowTask),
     }));
 
     return NextResponse.json(parsed);
@@ -237,7 +235,6 @@ export async function POST(req: NextRequest) {
       upload_days: JSON.parse(created.upload_days),
       script_default_columns: JSON.parse(created.script_default_columns || "[]"),
       default_folder_architecture: JSON.parse(created.default_folder_architecture || "[]"),
-      workflow_tasks: created.workflow_tasks.map(serializeWorkflowTask),
     });
   } catch (error) {
     console.error("Error creating content series:", error);
