@@ -38,6 +38,7 @@ import {
 import {
   NotesDocument,
   NotesPage,
+  NotesPageWidth,
   NoteStroke,
   NOTES_FONT_SIZES,
   DEFAULT_NOTES_FONT_SIZE,
@@ -46,6 +47,8 @@ import {
   parseNotesDocument,
   serializeNotesDocument,
   htmlToPlainText,
+  sanitizeNotesHtml,
+  plainTextToHtml,
 } from "@/lib/notes-utils";
 import {
   NotesInkLayer,
@@ -108,6 +111,9 @@ export function ScriptNotes({
   const [eraserSize, setEraserSize] = useState<number>(18);
   const [allowFingerDraw, setAllowFingerDraw] = useState<boolean>(true);
   const [palmRejection, setPalmRejection] = useState<boolean>(true);
+  const [viewerPageWidths, setViewerPageWidths] = useState<Record<string, NotesPageWidth>>({});
+  const effectivePageWidth: NotesPageWidth =
+    viewerPageWidths[activePage.id] || activePage.pageWidth || "a4";
 
   // Active toolbar state
   const [activeFormats, setActiveFormats] = useState({
@@ -346,9 +352,44 @@ export function ScriptNotes({
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     if (!canEdit) return;
     e.preventDefault();
+
+    const html = e.clipboardData.getData("text/html");
     const plain = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, plain);
-    handleEditorInput();
+
+    if (html && html.trim()) {
+      const cleanedHtml = sanitizeNotesHtml(html);
+      if (cleanedHtml && cleanedHtml.trim()) {
+        const inserted = document.execCommand("insertHTML", false, cleanedHtml);
+        if (inserted) {
+          handleEditorInput();
+          refreshToolbarState();
+          return;
+        }
+      }
+    }
+
+    if (plain) {
+      const fallbackHtml = plainTextToHtml(plain);
+      if (fallbackHtml) {
+        document.execCommand("insertHTML", false, fallbackHtml);
+      } else {
+        document.execCommand("insertText", false, plain);
+      }
+      handleEditorInput();
+      refreshToolbarState();
+    }
+  };
+
+  const handleSetPageWidth = (nextWidth: NotesPageWidth) => {
+    setViewerPageWidths((prev) => ({ ...prev, [activePage.id]: nextWidth }));
+    if (!canEdit) return;
+    const nextPages = doc.pages.map((p) =>
+      p.id === activePage.id ? { ...p, pageWidth: nextWidth } : p
+    );
+    emitDocument({
+      ...doc,
+      pages: nextPages,
+    });
   };
 
   // Page management handlers
@@ -681,8 +722,37 @@ export function ScriptNotes({
               )}
             </div>
 
-            {/* Right: Mode Segmented Toggle (Type vs Scribe) + Show/Hide Ink */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            {/* Right: Per-Page Width (A4 vs Full) + Ink Toggle + Mode Switch */}
+            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+              {/* Per-Page Width Segmented Switch */}
+              <div
+                className="flex items-center p-0.5 rounded-xl glass-subtle border border-border/70"
+                title={`Page width for "${activePage.title}" (A4 sheet vs Full width)`}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleSetPageWidth("a4")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                    effectivePageWidth === "a4"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  A4
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetPageWidth("full")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all cursor-pointer ${
+                    effectivePageWidth === "full"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Full
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setShowInk((v) => !v)}
@@ -1114,6 +1184,8 @@ export function ScriptNotes({
       {/* Unified Scrollable Paper (Rich Text + Synchronized Vector Ink Overlay) */}
       <div
         className={`relative w-full rounded-xl glass-input overflow-y-auto resize-y ${
+          effectivePageWidth === "a4" ? "bg-muted/25 px-2 py-3 sm:px-6 sm:py-5" : ""
+        } ${
           isExpandedWorkspace
             ? "h-[calc(100dvh-355px)] min-h-[260px]"
             : isMainScript
@@ -1137,11 +1209,19 @@ export function ScriptNotes({
             }
           }}
           style={{ paddingBottom: `${extraHeight}px` }}
-          className="relative w-full min-h-full"
+          className={`relative min-h-full transition-[max-width] duration-200 ${
+            effectivePageWidth === "a4"
+              ? "max-w-[794px] w-full mx-auto rounded-xl bg-background/85 border border-border/70 shadow-sm"
+              : "w-full"
+          }`}
         >
           {isEditorEmpty && (
             <div
-              className="pointer-events-none absolute top-2.5 left-2.5 right-2.5 sm:top-4 sm:left-4 sm:right-4 text-muted-foreground/60 select-none z-0"
+              className={`pointer-events-none absolute top-2.5 left-2.5 right-2.5 text-muted-foreground/60 select-none z-0 ${
+                effectivePageWidth === "a4"
+                  ? "sm:top-8 sm:left-8 sm:right-8"
+                  : "sm:top-4 sm:left-4 sm:right-4"
+              }`}
               style={{ fontSize: `${baseFontSize}px` }}
             >
               {noteMode === "scribe"
@@ -1162,7 +1242,9 @@ export function ScriptNotes({
             onMouseUp={refreshToolbarState}
             onPaste={handlePaste}
             style={{ fontSize: `${baseFontSize}px` }}
-            className={`relative z-0 w-full p-2.5 sm:p-4 min-h-full leading-relaxed font-sans focus:outline-none ${
+            className={`relative z-0 w-full min-h-full leading-relaxed font-sans focus:outline-none ${
+              effectivePageWidth === "a4" ? "p-3 sm:p-8" : "p-2.5 sm:p-4"
+            } ${
               noteMode === "scribe" ? "select-none" : ""
             } ${
               !canEdit ? "opacity-75 cursor-default" : ""

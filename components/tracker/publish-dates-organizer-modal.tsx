@@ -53,6 +53,8 @@ export function PublishDatesOrganizerModal({
   const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
   const [applying, setApplying] = useState<boolean>(false);
   const [previewItems, setPreviewItems] = useState<any[]>([]);
+  const [matchedCount, setMatchedCount] = useState<number>(0);
+  const [skippedManualCount, setSkippedManualCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   // Filter intermediate tasks: strictly excluding Ideation and Publish
@@ -92,6 +94,8 @@ export function PublishDatesOrganizerModal({
 
         if (!isCancelled) {
           setPreviewItems(data.preview || []);
+          setMatchedCount(data.matched_count ?? (data.preview || []).length);
+          setSkippedManualCount(data.skipped_manual_count ?? 0);
         }
       } catch (err: any) {
         if (!isCancelled) setError(err.message || "Failed to load preview");
@@ -404,7 +408,9 @@ export function PublishDatesOrganizerModal({
                     <span>Calculating schedule...</span>
                   </span>
                 ) : (
-                  <span>{previewItems.length} items will be reorganized</span>
+                  <span>
+                    {matchedCount} matched • {previewItems.length} date change{previewItems.length === 1 ? "" : "s"}
+                  </span>
                 )}
               </span>
             </div>
@@ -415,8 +421,18 @@ export function PublishDatesOrganizerModal({
                 <span className="text-[11px] font-mono">Simulating cadence timetable...</span>
               </div>
             ) : previewItems.length === 0 ? (
-              <div className="py-6 text-center text-muted-foreground border border-dashed border-border rounded-lg text-xs font-mono">
-                All selected placeholders are already aligned with your cadence schedule. No date changes required.
+              <div className="py-6 px-4 text-center text-muted-foreground border border-dashed border-border rounded-lg text-xs font-mono space-y-1">
+                {matchedCount > 0 ? (
+                  <p>
+                    {matchedCount} item{matchedCount === 1 ? "" : "s"} matched your filter, and all {matchedCount === 1 ? "is" : "are"} already aligned on your current cadence dates. Choose &ldquo;Next cadence date&rdquo; or &ldquo;Choose date manually&rdquo; to shift them.
+                  </p>
+                ) : skippedManualCount > 0 && !includeManual ? (
+                  <p>
+                    {skippedManualCount} item{skippedManualCount === 1 ? "" : "s"} matched the stage filter but {skippedManualCount === 1 ? "is" : "are"} marked as Manual. Select &ldquo;Yes, reorganize&rdquo; above to include them.
+                  </p>
+                ) : (
+                  <p>No active items match the selected filter.</p>
+                )}
               </div>
             ) : (
               <div className="border border-border rounded-lg overflow-hidden max-h-48 overflow-y-auto font-mono text-[11px]">

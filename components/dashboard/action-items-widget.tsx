@@ -55,13 +55,13 @@ export function ActionItemsWidget({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm">Open Action Items & Remarks</h3>
+              <h3 className="font-bold text-sm">Action Items</h3>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary text-primary-foreground">
                 {openItems.length} Open
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground font-mono">
-              Floating project action items across all pipeline slots (including archived videos)
+              Custom remarks &amp; notes across pipeline slots
             </p>
           </div>
         </div>
@@ -88,7 +88,7 @@ export function ActionItemsWidget({
             : "Zero open action items! All project to-dos are fulfilled."}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-2.5 max-h-[340px] overflow-y-auto pr-1">
           {currentList.map(({ itemId, uniqueContentId, title, contentTypeName, brandName, brandColor, isArchived, actionItem }) => {
             const isToggling = togglingId === actionItem.id;
 

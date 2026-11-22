@@ -3,16 +3,34 @@
 import React, { useState, useEffect } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import { StorageCleanupView, StorageCleanupItem } from "@/components/content/storage-cleanup-view";
+import {
+  getSessionCache,
+  hydrateSessionCacheFromStorage,
+  setSessionCache,
+} from "@/lib/session-cache";
+
+interface StorageCleanupCache {
+  items: StorageCleanupItem[];
+  totalUsageBytes: number;
+}
+
+const STORAGE_CACHE_KEY = "storage-cleanup";
 
 export default function StorageCleanupPage() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<StorageCleanupItem[]>([]);
-  const [totalUsageBytes, setTotalUsageBytes] = useState(0);
+  const initialCache = getSessionCache<StorageCleanupCache>(STORAGE_CACHE_KEY);
 
-  const fetchStorageData = async () => {
+  const [loading, setLoading] = useState(!initialCache);
+  const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<StorageCleanupItem[]>(initialCache?.items || []);
+  const [totalUsageBytes, setTotalUsageBytes] = useState(
+    initialCache?.totalUsageBytes || 0
+  );
+
+  const fetchStorageData = async (options?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) {
+        setLoading(true);
+      }
       setError(null);
       const res = await fetch("/api/storage-cleanup");
       if (!res.ok) {
@@ -20,18 +38,38 @@ export default function StorageCleanupPage() {
         throw new Error(data.error || "Failed to load storage cleanup data");
       }
       const data = await res.json();
-      setItems(data.items || []);
-      setTotalUsageBytes(data.totalDriveUsageBytes || 0);
+      const nextItems = data.items || [];
+      const nextBytes = data.totalDriveUsageBytes || 0;
+      setItems(nextItems);
+      setTotalUsageBytes(nextBytes);
+      setSessionCache<StorageCleanupCache>(STORAGE_CACHE_KEY, {
+        items: nextItems,
+        totalUsageBytes: nextBytes,
+      });
     } catch (err: any) {
       console.error("Error loading storage cleanup:", err);
-      setError(err.message || "Failed to load storage data");
+      if (!options?.silent) {
+        setError(err.message || "Failed to load storage data");
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchStorageData();
+    const cached =
+      getSessionCache<StorageCleanupCache>(STORAGE_CACHE_KEY) ||
+      hydrateSessionCacheFromStorage<StorageCleanupCache>(STORAGE_CACHE_KEY);
+    if (cached) {
+      setItems(cached.items || []);
+      setTotalUsageBytes(cached.totalUsageBytes || 0);
+      setLoading(false);
+      fetchStorageData({ silent: true });
+    } else {
+      fetchStorageData();
+    }
   }, []);
 
   const handleDeleteItemTarget = async (
@@ -80,7 +118,7 @@ export default function StorageCleanupPage() {
       items={items}
       totalUsageBytes={totalUsageBytes}
       onDeleteItemTarget={handleDeleteItemTarget}
-      onRefresh={fetchStorageData}
+      onRefresh={() => fetchStorageData({ silent: true })}
     />
   );
 }

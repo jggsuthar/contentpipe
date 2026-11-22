@@ -31,6 +31,13 @@ import {
 } from "lucide-react";
 import { getRoleConfigForContentType } from "@/lib/permissions";
 import { PublishDatesOrganizerModal } from "@/components/tracker/publish-dates-organizer-modal";
+import {
+  getSessionCache,
+  hydrateSessionCacheFromStorage,
+  setSessionCache,
+} from "@/lib/session-cache";
+
+const SETTINGS_SERIES_CACHE_KEY = "settings:content-types";
 
 interface WorkflowTaskItem {
   id: string;
@@ -476,9 +483,21 @@ function formatCadenceSummary(selectedType: ContentTypeItem): string {
 }
 
 export function ContentTypesTab() {
-  const [brands, setBrands] = useState<BrandItem[]>([]);
-  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
-  const [contentTypes, setContentTypes] = useState<ContentTypeItem[]>([]);
+  const initialCache = getSessionCache<{
+    brands: BrandItem[];
+    contentTypes: ContentTypeItem[];
+    roles: any[];
+    selectedBrandId: string | null;
+    selectedTypeId: string | null;
+  }>(SETTINGS_SERIES_CACHE_KEY);
+
+  const [brands, setBrands] = useState<BrandItem[]>(initialCache?.brands || []);
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(
+    initialCache?.selectedBrandId || null
+  );
+  const [contentTypes, setContentTypes] = useState<ContentTypeItem[]>(
+    initialCache?.contentTypes || []
+  );
   const [roles, setRoles] = useState<
     {
       id: string;
@@ -488,9 +507,11 @@ export function ContentTypesTab() {
       assigned_content_types: string[] | string;
       permissions: any;
     }[]
-  >([]);
-  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  >(initialCache?.roles || []);
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(
+    initialCache?.selectedTypeId || null
+  );
+  const [loading, setLoading] = useState(!initialCache);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Pipeline Sequence Form State & Unified Save State
@@ -610,20 +631,45 @@ export function ContentTypesTab() {
       const candidateTypeId =
         preferredTypeId !== undefined ? preferredTypeId : selectedTypeId;
 
-      if (candidateTypeId && scoped.some((t) => t.id === candidateTypeId)) {
-        setSelectedTypeId(candidateTypeId);
-      } else {
-        setSelectedTypeId(scoped[0]?.id || null);
+      const resolvedTypeId =
+        candidateTypeId && scoped.some((t) => t.id === candidateTypeId)
+          ? candidateTypeId
+          : scoped[0]?.id || null;
+      setSelectedTypeId(resolvedTypeId);
+
+      if (brandsRes.ok && res.ok) {
+        setSessionCache(SETTINGS_SERIES_CACHE_KEY, {
+          brands: fetchedBrands,
+          contentTypes: fetchedSeries,
+          roles: rolesRes.ok ? roles : roles,
+          selectedBrandId: targetBrandId,
+          selectedTypeId: resolvedTypeId,
+        });
       }
     } catch (err) {
       console.error("Error fetching brands, content series, or roles:", err);
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchContentTypes();
+    const cached =
+      getSessionCache<any>(SETTINGS_SERIES_CACHE_KEY) ||
+      hydrateSessionCacheFromStorage<any>(SETTINGS_SERIES_CACHE_KEY);
+    if (cached && Array.isArray(cached.brands) && cached.brands.length > 0) {
+      setBrands(cached.brands);
+      setContentTypes(cached.contentTypes || []);
+      if (Array.isArray(cached.roles)) setRoles(cached.roles);
+      setSelectedBrandId(cached.selectedBrandId || null);
+      setSelectedTypeId(cached.selectedTypeId || null);
+      setLoading(false);
+      fetchContentTypes(undefined, undefined, { silent: true });
+    } else {
+      fetchContentTypes();
+    }
   }, []);
 
   const selectedBrand =
@@ -1417,23 +1463,29 @@ export function ContentTypesTab() {
 
       const responses = await Promise.all(requests);
       if (responses.every((r) => r.ok)) {
-        // Update React state directly without page reload or scroll reset
-        setContentTypes((prev) =>
-          prev.map((ct) => {
-            if (ct.id !== selectedType.id) return ct;
-            return {
-              ...ct,
-              ...(updatedSeriesResult
-                ? {
-                    script_default_columns: updatedSeriesResult.script_default_columns,
-                    default_folder_architecture:
-                      updatedSeriesResult.default_folder_architecture,
-                  }
-                : {}),
-              ...(updatedTasksResult ? { workflow_tasks: updatedTasksResult } : {}),
-            };
-          })
-        );
+        // Update React state directly + SWR cache without page reload or scroll reset
+        const nextTypes = contentTypes.map((ct) => {
+          if (ct.id !== selectedType.id) return ct;
+          return {
+            ...ct,
+            ...(updatedSeriesResult
+              ? {
+                  script_default_columns: updatedSeriesResult.script_default_columns,
+                  default_folder_architecture:
+                    updatedSeriesResult.default_folder_architecture,
+                }
+              : {}),
+            ...(updatedTasksResult ? { workflow_tasks: updatedTasksResult } : {}),
+          };
+        });
+        setContentTypes(nextTypes);
+        setSessionCache(SETTINGS_SERIES_CACHE_KEY, {
+          brands,
+          contentTypes: nextTypes,
+          roles,
+          selectedBrandId,
+          selectedTypeId,
+        });
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 2500);
       }

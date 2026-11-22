@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     const targetDate = new Date(publish_date);
-    targetDate.setHours(12, 0, 0, 0); // Noon UTC to avoid timezone shift
+    targetDate.setUTCHours(12, 0, 0, 0); // Noon UTC to avoid timezone shift
 
     const cleanTitle = typeof title === "string" && title.trim().length > 0 ? title.trim() : null;
     const now = new Date();
@@ -405,7 +405,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const newTargetDate = new Date(new_publish_date);
-    newTargetDate.setHours(0, 0, 0, 0);
+    newTargetDate.setUTCHours(12, 0, 0, 0);
 
     const isVirtualPlaceholder = id.startsWith("placeholder_");
 

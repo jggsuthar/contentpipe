@@ -1,18 +1,26 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Play,
   Pause,
   RotateCcw,
   FlipHorizontal,
   X,
+  Sun,
+  Moon,
+  Eye,
+  EyeOff,
+  AlignLeft,
+  AlignCenter,
+  ScanLine,
 } from "lucide-react";
 import { ScriptRowData, ScriptColumnSchema } from "@/types/database";
 import {
   extractNotesPagesForTeleprompter,
   hasNotesContent,
 } from "@/lib/notes-utils";
+import { useTheme } from "@/components/providers/theme-provider";
 
 interface TeleprompterViewProps {
   rows: ScriptRowData[];
@@ -24,6 +32,8 @@ interface TeleprompterViewProps {
   onExit: () => void;
 }
 
+type PrompterWidth = "narrow" | "medium" | "wide";
+
 export function TeleprompterView({
   rows,
   columns = [],
@@ -33,358 +43,563 @@ export function TeleprompterView({
   uniqueContentId,
   onExit,
 }: TeleprompterViewProps) {
+  const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrollAccumRef = useRef<number>(0);
 
-  const notesHasText = React.useMemo(
-    () => hasNotesContent(notesText),
-    [notesText]
-  );
+  const notesHasText = useMemo(() => hasNotesContent(notesText), [notesText]);
 
-  // View Source State: Table vs Notes
+  // View Source: Table vs Notes
   const [viewSource, setViewSource] = useState<"table" | "notes">(
     isNotesMainScript && notesHasText ? "notes" : "table"
   );
 
-  const notesSections = React.useMemo(() => {
-    const pages = extractNotesPagesForTeleprompter(notesText);
-    const items: { label: string; text: string }[] = [];
-    const multiPage = pages.length > 1;
-    for (const page of pages) {
-      page.paragraphs.forEach((para, idx) => {
-        items.push({
-          label: multiPage
-            ? `${page.pageTitle} • Section #${idx + 1}`
-            : `Section #${idx + 1}`,
-          text: para,
-        });
-      });
-    }
-    return items;
-  }, [notesText]);
+  const notesPages = useMemo(
+    () => extractNotesPagesForTeleprompter(notesText),
+    [notesText]
+  );
+
+  // Surface color mode: defaults automatically to active app theme ("theme-dark" | "theme-bright"),
+  // with 1-click manual override for glass beamsplitter rigs needing dark background during daytime.
+  const [surfaceOverride, setSurfaceOverride] = useState<"dark" | "bright" | null>(null);
+  const isDarkSurface =
+    surfaceOverride !== null ? surfaceOverride === "dark" : theme === "theme-dark";
 
   // Teleprompter Controls
   const [isPlaying, setIsPlaying] = useState(false);
-  const [scrollSpeed, setScrollSpeed] = useState(2); // 0.5 to 8
-  const [fontSize, setFontSize] = useState(36); // 20 to 64px
-  const [lineHeight, setLineHeight] = useState(1.8);
-  const [isMirrored, setIsMirrored] = useState(false); // Horizontal flip for glass beam-splitter rigs
+  const [scrollSpeed, setScrollSpeed] = useState(2); // 0.5x to 8x
+  const [fontSize, setFontSize] = useState(34); // 20 to 64px
+  const [lineHeight, setLineHeight] = useState(1.7);
+  const [isMirrored, setIsMirrored] = useState(false);
+  const [textAlign, setTextAlign] = useState<"left" | "center">(
+    isNotesMainScript && notesHasText ? "left" : "center"
+  );
+  const [readerWidth, setReaderWidth] = useState<PrompterWidth>("medium");
+  const [showGuide, setShowGuide] = useState(true);
+  const [hudHidden, setHudHidden] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
-  // Identify dynamic dialogue column
-  const dialogueColId = React.useMemo(() => {
+  // Identify dynamic dialogue & roll columns
+  const dialogueColId = useMemo(() => {
     if (!columns || columns.length === 0) return "col_dialogue";
-    // 1. Look for explicit matches
-    const exact = columns.find(
-      (c) => c.id === "col_dialogue" || c.id === "dialogue"
-    );
+    const exact = columns.find((c) => c.id === "col_dialogue" || c.id === "dialogue");
     if (exact) return exact.id;
-
-    // 2. Look for name matches containing dialogue or spoken words
     const byName = columns.find((c) => {
       const n = (c.name || "").toLowerCase();
       return n.includes("dialogue") || n.includes("spoken") || n.includes("speech");
     });
     if (byName) return byName.id;
-
-    // 3. Fallback to widest text column
     const textCols = columns.filter((c) => c.type === "text");
-    if (textCols.length > 0) return textCols[0].id;
-
-    return "col_dialogue";
+    return textCols[0]?.id || "col_dialogue";
   }, [columns]);
 
-  // Identify roll / cue column
-  const rollColId = React.useMemo(() => {
+  const rollColId = useMemo(() => {
     if (!columns || columns.length === 0) return "col_roll";
     const exact = columns.find((c) => c.id === "col_roll" || c.id === "roll_type");
     if (exact) return exact.id;
     const byName = columns.find((c) => (c.name || "").toLowerCase().includes("roll"));
-    if (byName) return byName.id;
-    return "col_roll";
+    return byName?.id || "col_roll";
   }, [columns]);
 
-  // Auto-scroll loop
+  const syncProgress = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const maxScroll = Math.max(1, el.scrollHeight - el.clientHeight);
+    setScrollProgress(Math.min(100, Math.max(0, Math.round((el.scrollTop / maxScroll) * 100))));
+  }, []);
+
+  // Delta-time smooth sub-pixel auto-scroll loop
   useEffect(() => {
-    let animationFrameId: number;
+    if (!isPlaying) return;
 
-    const scrollStep = () => {
-      if (isPlaying && containerRef.current) {
-        containerRef.current.scrollTop += scrollSpeed * 0.6;
-        // Check if reached bottom
-        if (
-          containerRef.current.scrollTop + containerRef.current.clientHeight >=
-          containerRef.current.scrollHeight - 5
-        ) {
-          setIsPlaying(false);
-        }
-      }
-      if (isPlaying) {
-        animationFrameId = requestAnimationFrame(scrollStep);
-      }
-    };
-
-    if (isPlaying) {
-      animationFrameId = requestAnimationFrame(scrollStep);
+    const el = containerRef.current;
+    if (el) {
+      scrollAccumRef.current = el.scrollTop;
     }
 
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [isPlaying, scrollSpeed]);
+    let rafId = 0;
+    let lastTime = performance.now();
 
-  // Keyboard shortcut: Spacebar to toggle Play/Pause, Esc to Exit, R to reset
+    const step = (now: number) => {
+      const target = containerRef.current;
+      if (!target) return;
+
+      const dtSec = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
+      lastTime = now;
+
+      const maxScroll = Math.max(0, target.scrollHeight - target.clientHeight);
+      if (target.scrollTop >= maxScroll - 1) {
+        setIsPlaying(false);
+        setScrollProgress(100);
+        return;
+      }
+
+      // 32 px/sec baseline per 1.0x ensures even 0.5x scrolls smoothly on 60Hz-120Hz panels
+      scrollAccumRef.current = Math.min(
+        maxScroll,
+        scrollAccumRef.current + scrollSpeed * 32 * dtSec
+      );
+      target.scrollTop = scrollAccumRef.current;
+      syncProgress();
+
+      rafId = requestAnimationFrame(step);
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [isPlaying, scrollSpeed, syncProgress]);
+
+  const handleReset = useCallback(() => {
+    setIsPlaying(false);
+    scrollAccumRef.current = 0;
+    if (containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    setScrollProgress(0);
+  }, []);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space") {
+        if (e.repeat) return;
         e.preventDefault();
         setIsPlaying((prev) => !prev);
       } else if (e.code === "Escape") {
         onExit();
-      } else if (e.key === "r" || e.key === "R") {
+      } else if ((e.key === "r" || e.key === "R") && !e.repeat) {
         handleReset();
+      } else if ((e.key === "m" || e.key === "M") && !e.repeat) {
+        setIsMirrored((prev) => !prev);
+      } else if ((e.key === "h" || e.key === "H") && !e.repeat) {
+        setHudHidden((prev) => !prev);
+      } else if (e.code === "ArrowUp") {
+        e.preventDefault();
+        setScrollSpeed((s) => Math.min(8, Number((s + 0.5).toFixed(1))));
+      } else if (e.code === "ArrowDown") {
+        e.preventDefault();
+        setScrollSpeed((s) => Math.max(0.5, Number((s - 0.5).toFixed(1))));
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onExit]);
+  }, [onExit, handleReset]);
 
-  const handleReset = () => {
-    setIsPlaying(false);
-    if (containerRef.current) {
-      containerRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
+  const widthClass =
+    readerWidth === "narrow"
+      ? "max-w-xl"
+      : readerWidth === "wide"
+      ? "max-w-5xl"
+      : "max-w-3xl";
+
+  // Explicit theme-safe palettes (never rely on mismatched glass classes + hardcoded white text)
+  const palette = isDarkSurface
+    ? {
+        root: "bg-[#06080e] text-[#f8fafc]",
+        hud: "bg-[#0f172a]/92 text-[#f1f5f9] border-white/15 shadow-2xl",
+        btn: "bg-white/10 hover:bg-white/20 text-white border-white/10",
+        btnActive: "bg-emerald-500 text-slate-950 border-emerald-400 font-bold",
+        pillTrack: "bg-white/8 border-white/10",
+        muted: "text-slate-400",
+        accent: "text-emerald-400",
+        divider: "border-white/10",
+        cardHover: "hover:bg-white/[0.03]",
+        cueText: "text-slate-400",
+        guideLine: "bg-emerald-400",
+        guideBand: "bg-emerald-500/[0.05] border-y border-emerald-400/20",
+        progressTrack: "bg-white/10",
+        progressBar: "bg-emerald-400",
+      }
+    : {
+        root: "bg-[#f8fafc] text-[#0f172a]",
+        hud: "bg-white/95 text-[#0f172a] border-slate-200 shadow-lg",
+        btn: "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200/80",
+        btnActive: "bg-indigo-600 text-white border-indigo-600 font-bold",
+        pillTrack: "bg-slate-100 border-slate-200",
+        muted: "text-slate-500",
+        accent: "text-indigo-600",
+        divider: "border-slate-200",
+        cardHover: "hover:bg-slate-900/[0.03]",
+        cueText: "text-slate-500",
+        guideLine: "bg-indigo-600",
+        guideBand: "bg-indigo-600/[0.05] border-y border-indigo-600/20",
+        progressTrack: "bg-slate-200",
+        progressBar: "bg-indigo-600",
+      };
+
+  const renderedDialogueRows = useMemo(() => {
+    return rows
+      .map((row) => {
+        let rawDialogue: unknown =
+          row[dialogueColId] ?? row.col_dialogue ?? row.dialogue ?? "";
+
+        if (!rawDialogue && columns && columns.length > 0) {
+          for (const c of columns) {
+            if (c.type === "text" && row[c.id]) {
+              rawDialogue = row[c.id];
+              break;
+            }
+          }
+        }
+
+        const dialogueText = String(rawDialogue || "").trim();
+        if (!dialogueText) return null;
+
+        const rawRoll = row[rollColId] ?? row.col_roll ?? row.roll_type ?? "";
+        const rollText = String(rawRoll).trim();
+        const rawCue = row.col_visual ?? row.description ?? "";
+        const cueText = String(rawCue).trim();
+
+        return { srNo: row.sr_no, dialogueText, rollText, cueText };
+      })
+      .filter(Boolean) as {
+      srNo: number;
+      dialogueText: string;
+      rollText: string;
+      cueText: string;
+    }[];
+  }, [rows, columns, dialogueColId, rollColId]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0a0a0c] text-[#f4f4f5] flex flex-col justify-between overflow-hidden select-none font-sans">
-      {/* Top Floating HUD Control Bar */}
-      <div className="w-full max-w-5xl mx-auto p-4 z-20">
-        <div className="glass-floating bg-[#111928]/80 border border-white/15 backdrop-blur-2xl rounded-2xl p-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-          {/* Left: Video Meta & Return */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onExit}
-              className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Exit Prompter</span>
-            </button>
-
-            <div className="hidden sm:block">
-              <span className="font-bold text-white/90 truncate max-w-xs block">
-                {videoTitle}
-              </span>
-              <span className="text-[10px] text-white/50">
-                {uniqueContentId ? `ID: ${uniqueContentId} • ` : ""}
-                Spacebar: Play/Pause • Esc: Exit
-              </span>
-            </div>
-          </div>
-
-          {/* Center: Playback Controls */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-              title="Reset to top (R)"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsPlaying(!isPlaying)}
-              className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all cursor-pointer shadow-lg ${
-                isPlaying
-                  ? "bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20"
-                  : "bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/20"
-              }`}
-            >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              <span>{isPlaying ? "Pause" : "Scroll"}</span>
-            </button>
-
-            {/* Speed slider (0.5x to 8x) */}
-            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white/5 rounded-lg border border-white/5">
-              <span className="text-[10px] text-white/60">Speed:</span>
-              <input
-                type="range"
-                min="0.5"
-                max="8"
-                step="0.5"
-                value={scrollSpeed}
-                onChange={(e) => setScrollSpeed(parseFloat(e.target.value))}
-                className="w-20 accent-emerald-500 cursor-pointer"
-              />
-              <span className="font-bold text-emerald-400 text-xs w-8">{scrollSpeed}x</span>
-            </div>
-          </div>
-
-          {/* Right: Typography & Mirror Toggle */}
-          <div className="flex items-center gap-2">
-            {/* Font Size A- / A+ */}
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded-lg border border-white/5">
-              <span className="text-[10px] text-white/60">Size:</span>
-              <button
-                type="button"
-                onClick={() => setFontSize((s) => Math.max(20, s - 4))}
-                className="px-1.5 py-0.5 hover:bg-white/10 rounded cursor-pointer text-white"
-                title="Decrease font size"
-              >
-                A-
-              </button>
-              <span className="font-bold text-xs">{fontSize}px</span>
-              <button
-                type="button"
-                onClick={() => setFontSize((s) => Math.min(64, s + 4))}
-                className="px-1.5 py-0.5 hover:bg-white/10 rounded cursor-pointer text-white"
-                title="Increase font size"
-              >
-                A+
-              </button>
-            </div>
-
-            {/* Mirror / Flip Toggle (Beamsplitter Rig) */}
-            <button
-              type="button"
-              onClick={() => setIsMirrored(!isMirrored)}
-              className={`p-2 rounded-lg border transition-colors cursor-pointer ${
-                isMirrored
-                  ? "bg-emerald-500 text-black border-emerald-500 font-bold"
-                  : "bg-white/5 hover:bg-white/10 text-white border-white/5"
-              }`}
-              title="Mirror / Flip horizontally for glass beamsplitter rigs"
-            >
-              <FlipHorizontal className="w-4 h-4" />
-            </button>
-
-            {/* Source Switcher: Notes Script vs Table Script */}
-            {notesHasText && (
-              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/10 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setViewSource("notes")}
-                  className={`px-2 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
-                    viewSource === "notes"
-                      ? "bg-emerald-500 text-black font-bold shadow-xs"
-                      : "text-white/70 hover:text-white"
-                  }`}
-                >
-                  Notes Script
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewSource("table")}
-                  className={`px-2 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
-                    viewSource === "table"
-                      ? "bg-emerald-500 text-black font-bold shadow-xs"
-                      : "text-white/70 hover:text-white"
-                  }`}
-                >
-                  Table Script
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+    <div
+      className={`fixed inset-0 z-50 flex flex-col overflow-hidden select-none font-sans transition-colors duration-200 ${palette.root}`}
+    >
+      {/* Top Reading Progress Bar */}
+      <div className={`w-full h-1 shrink-0 ${palette.progressTrack}`}>
+        <div
+          className={`h-full transition-[width] duration-100 ${palette.progressBar}`}
+          style={{ width: `${scrollProgress}%` }}
+        />
       </div>
 
-      {/* Reading Text Viewport */}
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-y-auto px-6 md:px-16 py-32 scroll-smooth text-center"
-      >
-        <div
-          className={`max-w-4xl mx-auto transition-transform duration-200 ${
-            isMirrored ? "-scale-x-100" : ""
-          }`}
-          style={{
-            fontSize: `${fontSize}px`,
-            lineHeight: lineHeight,
-          }}
-        >
-          {/* Reader Lines */}
-          {viewSource === "notes" ? (
-            notesSections.length === 0 ? (
-              <div className="text-white/40 italic py-16 text-xl">
-                No script text found in Notes.
-              </div>
-            ) : (
-              notesSections.map((sec, idx) => (
-                <div
-                  key={idx}
-                  className="py-6 border-b border-white/5 hover:bg-white/[0.02] transition-colors rounded-xl px-4"
-                >
-                  <div className="text-[11px] font-mono text-emerald-400/70 uppercase tracking-widest mb-2 select-none">
-                    {sec.label}
-                  </div>
-                  <p className="font-medium text-white/95 tracking-wide antialiased whitespace-pre-wrap leading-relaxed">
-                    {sec.text}
-                  </p>
-                </div>
-              ))
-            )
-          ) : (
-            rows.map((row) => {
-            let rawDialogue: unknown =
-              row[dialogueColId] ??
-              row.col_dialogue ??
-              row.dialogue ??
-              "";
+      {/* Compact Reveal Pill when HUD is Hidden */}
+      {hudHidden && (
+        <div className="fixed top-3 right-3 z-30 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setIsPlaying((p) => !p)}
+            className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold shadow-lg border cursor-pointer flex items-center gap-1.5 ${
+              isPlaying
+                ? "bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400"
+                : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-400"
+            }`}
+          >
+            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span>{isPlaying ? "Pause" : "Scroll"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setHudHidden(false)}
+            className={`px-2.5 py-1.5 rounded-full text-xs font-mono border shadow-lg cursor-pointer flex items-center gap-1 backdrop-blur-md ${palette.hud}`}
+            title="Show controls (H)"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>HUD</span>
+          </button>
+        </div>
+      )}
 
-            // If empty, search other columns in this row for text content
-            if (!rawDialogue && columns && columns.length > 0) {
-              for (const c of columns) {
-                if (c.type === "text" && row[c.id]) {
-                  rawDialogue = row[c.id];
-                  break;
-                }
-              }
-            }
-
-            const dialogueText = String(rawDialogue || "").trim();
-
-            if (!dialogueText) return null;
-
-            const rawRoll = row[rollColId] ?? row.col_roll ?? row.roll_type ?? "";
-            const rollText = String(rawRoll).trim();
-
-            const rawCue = row.col_visual ?? row.description ?? "";
-            const cueText = String(rawCue).trim();
-
-            return (
-              <div
-                key={row.sr_no}
-                className="py-6 border-b border-white/5 hover:bg-white/[0.02] transition-colors rounded-xl px-4"
+      {/* Top Floating HUD Control Bar */}
+      {!hudHidden && (
+        <div className="w-full max-w-6xl mx-auto px-3 pt-3 pb-1 z-20 shrink-0">
+          <div
+            className={`border backdrop-blur-xl rounded-2xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono ${palette.hud}`}
+          >
+            {/* Left: Exit & Meta */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                type="button"
+                onClick={onExit}
+                className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${palette.btn}`}
+                title="Exit Teleprompter (Esc)"
               >
-                <div className="text-[11px] font-mono text-emerald-400/70 uppercase tracking-widest mb-2 select-none">
-                  Line #{row.sr_no} {rollText ? `• [${rollText}]` : ""}
-                </div>
+                <X className="w-3.5 h-3.5" />
+                <span>Exit</span>
+              </button>
 
-                <p className="font-medium text-white/95 tracking-wide antialiased">
-                  {dialogueText}
-                </p>
-
-                {cueText && (
-                  <p className="text-xs font-mono text-white/40 italic mt-2">
-                    Action / Cue: {cueText}
-                  </p>
-                )}
+              <div className="hidden lg:block min-w-0">
+                <span className="font-bold truncate max-w-[210px] block leading-tight">
+                  {videoTitle}
+                </span>
+                <span className={`text-[10px] block ${palette.muted}`}>
+                  {uniqueContentId ? `${uniqueContentId} • ` : ""}
+                  Space: Play • ↑↓: Speed • H: Hide HUD
+                </span>
               </div>
-            );
-          })
+            </div>
+
+            {/* Center: Playback & Speed */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleReset}
+                className={`p-2 rounded-xl border transition-colors cursor-pointer ${palette.btn}`}
+                title="Reset to top (R)"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPlaying((p) => !p)}
+                className={`px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
+                  isPlaying
+                    ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
+                    : "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
+                }`}
+              >
+                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                <span>{isPlaying ? "Pause" : "Scroll"}</span>
+              </button>
+
+              <div className={`flex items-center gap-2 px-2.5 py-1 rounded-xl border ${palette.pillTrack}`}>
+                <span className={`text-[10px] ${palette.muted}`}>Speed</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="8"
+                  step="0.5"
+                  value={scrollSpeed}
+                  onChange={(e) => setScrollSpeed(parseFloat(e.target.value))}
+                  className="w-16 sm:w-20 accent-emerald-500 cursor-pointer"
+                />
+                <span className={`font-bold text-xs w-8 ${palette.accent}`}>
+                  {scrollSpeed}x
+                </span>
+              </div>
+            </div>
+
+            {/* Right: Size, Alignment, Width, Mirror, Surface Theme, Source */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Font Size */}
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-xl border ${palette.pillTrack}`}>
+                <button
+                  type="button"
+                  onClick={() => setFontSize((s) => Math.max(20, s - 4))}
+                  className="px-1.5 py-0.5 rounded hover:opacity-75 cursor-pointer font-bold"
+                  title="Decrease font size"
+                >
+                  A-
+                </button>
+                <span className="font-bold text-[11px] w-9 text-center">{fontSize}px</span>
+                <button
+                  type="button"
+                  onClick={() => setFontSize((s) => Math.min(64, s + 4))}
+                  className="px-1.5 py-0.5 rounded hover:opacity-75 cursor-pointer font-bold"
+                  title="Increase font size"
+                >
+                  A+
+                </button>
+              </div>
+
+              {/* Line Width Selector */}
+              <div className={`hidden sm:flex items-center p-0.5 rounded-xl border ${palette.pillTrack}`}>
+                {(["narrow", "medium", "wide"] as PrompterWidth[]).map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => setReaderWidth(w)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] capitalize transition-all cursor-pointer ${
+                      readerWidth === w ? palette.btnActive : palette.muted
+                    }`}
+                    title={`Column width: ${w}`}
+                  >
+                    {w === "narrow" ? "S" : w === "medium" ? "M" : "L"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Text Alignment Toggle */}
+              <button
+                type="button"
+                onClick={() => setTextAlign((a) => (a === "center" ? "left" : "center"))}
+                className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${palette.btn}`}
+                title={`Switch text alignment (currently ${textAlign})`}
+              >
+                {textAlign === "center" ? (
+                  <AlignCenter className="w-3.5 h-3.5" />
+                ) : (
+                  <AlignLeft className="w-3.5 h-3.5" />
+                )}
+              </button>
+
+              {/* Reading Eye-Line Guide Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowGuide((g) => !g)}
+                className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
+                  showGuide ? palette.btnActive : palette.btn
+                }`}
+                title="Toggle camera eye-line guide"
+              >
+                <ScanLine className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Mirror / Beamsplitter Flip */}
+              <button
+                type="button"
+                onClick={() => setIsMirrored((m) => !m)}
+                className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
+                  isMirrored ? palette.btnActive : palette.btn
+                }`}
+                title="Mirror horizontally for beamsplitter glass rigs (M)"
+              >
+                <FlipHorizontal className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Dark Rig vs Daylight Surface Switcher */}
+              <button
+                type="button"
+                onClick={() => setSurfaceOverride(isDarkSurface ? "bright" : "dark")}
+                className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${palette.btn}`}
+                title={
+                  isDarkSurface
+                    ? "Switch Teleprompter to Daylight Contrast"
+                    : "Switch Teleprompter to Dark Studio Contrast"
+                }
+              >
+                {isDarkSurface ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              </button>
+
+              {/* Hide HUD */}
+              <button
+                type="button"
+                onClick={() => setHudHidden(true)}
+                className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${palette.btn}`}
+                title="Hide controls (H)"
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Source Switcher: Notes vs Table */}
+              {notesHasText && (
+                <div className={`flex items-center gap-0.5 p-0.5 rounded-xl border ${palette.pillTrack}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewSource("notes");
+                      setTextAlign("left");
+                    }}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
+                      viewSource === "notes" ? palette.btnActive : palette.muted
+                    }`}
+                  >
+                    Notes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewSource("table")}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
+                      viewSource === "table" ? palette.btnActive : palette.muted
+                    }`}
+                  >
+                    Table
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Viewport Wrapper with Camera Eye-Line Guide */}
+      <div className="relative flex-1 min-h-0">
+        {showGuide && (
+          <div
+            className={`pointer-events-none absolute inset-x-0 top-[30%] -translate-y-1/2 h-24 z-10 flex items-center justify-between px-3 sm:px-6 ${palette.guideBand}`}
+          >
+            <div className={`w-6 sm:w-10 h-[2px] rounded-full opacity-80 ${palette.guideLine}`} />
+            <div className={`w-6 sm:w-10 h-[2px] rounded-full opacity-80 ${palette.guideLine}`} />
+          </div>
         )}
 
-          <div className="py-48 text-center text-sm font-mono text-white/30 uppercase tracking-widest">
-            — End of Script —
+        {/* Scrollable Script Canvas (note: NO smooth-scroll class here so rAF stays silky) */}
+        <div
+          ref={containerRef}
+          onScroll={() => {
+            if (!isPlaying && containerRef.current) {
+              scrollAccumRef.current = containerRef.current.scrollTop;
+            }
+            syncProgress();
+          }}
+          onClick={() => setIsPlaying((p) => !p)}
+          className="h-full overflow-y-auto px-5 sm:px-10 md:px-16 pt-[24vh] pb-[60vh] cursor-pointer"
+        >
+          <div
+            className={`${widthClass} mx-auto transition-transform duration-200 ${
+              isMirrored ? "-scale-x-100" : ""
+            } ${textAlign === "center" ? "text-center" : "text-left"}`}
+            style={{
+              fontSize: `${fontSize}px`,
+              lineHeight,
+            }}
+          >
+            {viewSource === "notes" ? (
+              notesPages.length === 0 ? (
+                <div className={`italic py-16 text-xl text-center ${palette.muted}`}>
+                  No script text found in Notes.
+                </div>
+              ) : (
+                notesPages.map((page) => (
+                  <div
+                    key={page.pageId}
+                    className={`py-6 border-b rounded-2xl px-4 transition-colors ${palette.divider} ${palette.cardHover}`}
+                  >
+                    {notesPages.length > 1 && (
+                      <div
+                        className={`text-[11px] font-mono uppercase tracking-widest mb-3 select-none ${palette.accent}`}
+                      >
+                        {page.pageTitle}
+                      </div>
+                    )}
+                    <div
+                      className={`font-medium tracking-wide antialiased break-words space-y-4 [&_h1]:text-[1.4em] [&_h1]:font-extrabold [&_h1]:leading-tight [&_h2]:text-[1.22em] [&_h2]:font-bold [&_h2]:leading-tight [&_h3]:text-[1.1em] [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-8 [&_ol]:list-decimal [&_ol]:pl-8 [&_li]:my-1.5 [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:opacity-85 ${
+                        textAlign === "center"
+                          ? "[&_ul]:inline-block [&_ul]:text-left [&_ol]:inline-block [&_ol]:text-left"
+                          : ""
+                      }`}
+                      dangerouslySetInnerHTML={{ __html: page.contentHtml }}
+                    />
+                  </div>
+                ))
+              )
+            ) : renderedDialogueRows.length === 0 ? (
+              <div className={`italic py-16 text-xl text-center ${palette.muted}`}>
+                No dialogue lines found in Script Table.
+              </div>
+            ) : (
+              renderedDialogueRows.map((row) => (
+                <div
+                  key={row.srNo}
+                  className={`py-6 border-b rounded-2xl px-4 transition-colors ${palette.divider} ${palette.cardHover}`}
+                >
+                  <div
+                    className={`text-[11px] font-mono uppercase tracking-widest mb-2 select-none ${palette.accent}`}
+                  >
+                    Line #{row.srNo} {row.rollText ? `• [${row.rollText}]` : ""}
+                  </div>
+
+                  <p className="font-medium tracking-wide antialiased whitespace-pre-wrap">
+                    {row.dialogueText}
+                  </p>
+
+                  {row.cueText && (
+                    <p className={`text-sm font-mono italic mt-2.5 ${palette.cueText}`}>
+                      Action / Cue: {row.cueText}
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
+
+            <div
+              className={`py-36 text-center text-xs font-mono uppercase tracking-widest ${palette.muted}`}
+            >
+              — End of Script —
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Center Reading Guide Markers */}
-      <div className="fixed left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-between px-4 z-10 opacity-20">
-        <div className="w-12 h-[1px] bg-emerald-400" />
-        <div className="w-12 h-[1px] bg-emerald-400" />
       </div>
     </div>
   );

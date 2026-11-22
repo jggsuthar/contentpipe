@@ -143,9 +143,28 @@ export async function GET(req: NextRequest) {
         is_hidden: wt.is_hidden,
       }));
 
+      const computeUrgency = (targetDate: Date) => {
+        const now = new Date();
+        const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+        const targetMs = Date.UTC(
+          targetDate.getUTCFullYear(),
+          targetDate.getUTCMonth(),
+          targetDate.getUTCDate()
+        );
+        const diffDays = Math.round((targetMs - todayMs) / 86_400_000);
+        if (diffDays < 0) {
+          return { urgency: "delayed" as const, delayDays: Math.abs(diffDays), daysUntilDue: diffDays };
+        }
+        if (diffDays <= 7) {
+          return { urgency: "near" as const, delayDays: 0, daysUntilDue: diffDays };
+        }
+        return { urgency: "on_track" as const, delayDays: 0, daysUntilDue: diffDays };
+      };
+
       type.content_items.forEach((item) => {
-        if (!item.publish_date) return;
+        if (!item.publish_date || !item.title || !item.unique_content_id) return;
         const targetDatesMap = calculateTaskTargetDates(new Date(item.publish_date), workflowTaskDefs);
+        const publishDateIso = new Date(item.publish_date).toISOString();
 
         // Responsibility A: Scripting
         if (typeHasScripting) {
@@ -182,6 +201,7 @@ export async function GET(req: NextRequest) {
           const targetDate = hasScriptRevision
             ? taskDates?.target_date_team_final || new Date(item.publish_date)
             : taskDates?.target_date_team_1st || new Date(item.publish_date);
+          const timing = computeUrgency(targetDate);
 
           if (hasScriptRevision) {
             changesRequested.push({
@@ -196,8 +216,10 @@ export async function GET(req: NextRequest) {
               nextVersion: "Rev",
               latestFeedbackNote,
               unresolvedCommentsCount,
+              publishDate: publishDateIso,
               teamDueDate: targetDate.toISOString(),
-              targetUrl: `/script/${item.unique_content_id || item.id}`,
+              ...timing,
+              targetUrl: `/scripts/${item.unique_content_id || item.id}`,
             });
           } else if (status !== "done") {
             upNext.push({
@@ -209,8 +231,10 @@ export async function GET(req: NextRequest) {
               brandColor: type.brand?.color || null,
               taskName: "Scripting",
               targetTaskName: taskName,
+              publishDate: publishDateIso,
               teamDueDate: targetDate.toISOString(),
-              targetUrl: `/script/${item.unique_content_id || item.id}`,
+              ...timing,
+              targetUrl: `/scripts/${item.unique_content_id || item.id}`,
             });
           }
         }
@@ -243,6 +267,7 @@ export async function GET(req: NextRequest) {
           const targetDate = hasContentRevision
             ? taskDates?.target_date_team_final || new Date(item.publish_date)
             : taskDates?.target_date_team_1st || new Date(item.publish_date);
+          const timing = computeUrgency(targetDate);
 
           const nextVersion = `V${taskSubs.length + 1}`;
 
@@ -259,7 +284,9 @@ export async function GET(req: NextRequest) {
               nextVersion,
               latestFeedbackNote,
               unresolvedCommentsCount,
+              publishDate: publishDateIso,
               teamDueDate: targetDate.toISOString(),
+              ...timing,
               targetUrl: `/content/${item.unique_content_id || item.id}`,
             });
           } else if (status !== "done" && latestSub?.status !== "approved") {
@@ -272,7 +299,9 @@ export async function GET(req: NextRequest) {
               brandColor: type.brand?.color || null,
               taskName: "Content Submission",
               targetTaskName: taskName,
+              publishDate: publishDateIso,
               teamDueDate: targetDate.toISOString(),
+              ...timing,
               targetUrl: `/content/${item.unique_content_id || item.id}`,
             });
           }
@@ -322,8 +351,8 @@ export async function GET(req: NextRequest) {
       focusReminderText = `${topPercentage}% of your recent feedback was related to ${top2[0][0]}. Focus on refining this in your next cut!`;
     }
 
-    // Performance streak calculations:
-    let onTimeCount = 0;
+    // Performance calculations (actual data, no placeholder guesses):
+    let approvedItemsCount = 0;
     let firstTryCount = 0;
 
     const subItemMap = new Map<string, typeof mySubmissions>();
@@ -334,18 +363,22 @@ export async function GET(req: NextRequest) {
     });
 
     subItemMap.forEach((subs) => {
-      // First-try approval: approved at V1 without rejections
-      const v1 = subs.find((s) => s.version === "V1");
-      const hadRejections = subs.some((s) => s.status === "rejected");
-      if (v1 && v1.status === "approved" && !hadRejections) {
-        firstTryCount++;
+      const hasApproved = subs.some((s) => s.status === "approved");
+      if (hasApproved) {
+        approvedItemsCount++;
+        const v1 = subs.find((s) => s.version === "V1");
+        const hadRejections = subs.some((s) => s.status === "rejected");
+        if (v1 && v1.status === "approved" && !hadRejections) {
+          firstTryCount++;
+        }
       }
-      onTimeCount++; // Baseline on-time tracking
     });
 
     const firstTryRate =
-      subItemMap.size > 0 ? Math.round((firstTryCount / subItemMap.size) * 100) : 90;
-    const onTimeRate = 95; // Default high delivery streak
+      approvedItemsCount > 0 ? Math.round((firstTryCount / approvedItemsCount) * 100) : null;
+    const delayedCount = [...changesRequested, ...upNext].filter(
+      (i) => i.urgency === "delayed"
+    ).length;
 
     return NextResponse.json({
       brands,
@@ -364,7 +397,8 @@ export async function GET(req: NextRequest) {
         topErrors: top2.map(([name, count]) => ({ name, count })),
       },
       performance: {
-        onTimeRate,
+        delayedCount,
+        approvedDeliverables: approvedItemsCount,
         firstTryRate,
         completedDeliverables: mySubmissions.length,
       },

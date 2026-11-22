@@ -20,21 +20,38 @@ import {
   Sparkles,
 } from "lucide-react";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { UrgencyBadge } from "@/components/dashboard/urgency-badge";
+import {
+  getSessionCache,
+  hydrateSessionCacheFromStorage,
+  setSessionCache,
+} from "@/lib/session-cache";
+
+function getTeamDashboardCacheKey(brandId: string) {
+  return `team-dashboard-v2:${brandId}`;
+}
 
 export default function TeamDashboardPage() {
   const { data: session, status } = useSession();
 
-  const [loading, setLoading] = useState(true);
+  const initialCache = getSessionCache<any>(getTeamDashboardCacheKey("all"));
+
+  const [loading, setLoading] = useState(!initialCache);
   const [error, setError] = useState<string | null>(null);
-  const [teamData, setTeamData] = useState<any>(null);
+  const [teamData, setTeamData] = useState<any>(initialCache);
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [brandsList, setBrandsList] = useState<
     { id: string; name: string; color?: string | null; is_default?: boolean }[]
-  >([]);
+  >(Array.isArray(initialCache?.brands) ? initialCache.brands : []);
 
-  const fetchTeamDashboard = async (brandId = brandFilter) => {
+  const fetchTeamDashboard = async (
+    brandId = brandFilter,
+    options?: { silent?: boolean }
+  ) => {
     try {
-      setLoading(true);
+      if (!options?.silent) {
+        setLoading(true);
+      }
       setError(null);
       const res = await fetch(
         `/api/dashboard/team?brandId=${encodeURIComponent(brandId)}`
@@ -48,16 +65,31 @@ export default function TeamDashboardPage() {
       if (Array.isArray(data.brands)) {
         setBrandsList(data.brands);
       }
+      setSessionCache(getTeamDashboardCacheKey(brandId), data);
     } catch (err: any) {
       console.error("Team dashboard error:", err);
-      setError(err.message || "Failed to load dashboard data");
+      if (!options?.silent) {
+        setError(err.message || "Failed to load dashboard data");
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchTeamDashboard(brandFilter);
+    const key = getTeamDashboardCacheKey(brandFilter);
+    const cached =
+      getSessionCache<any>(key) || hydrateSessionCacheFromStorage<any>(key);
+    if (cached) {
+      setTeamData(cached);
+      if (Array.isArray(cached.brands)) setBrandsList(cached.brands);
+      setLoading(false);
+      fetchTeamDashboard(brandFilter, { silent: true });
+    } else {
+      fetchTeamDashboard(brandFilter);
+    }
   }, [brandFilter]);
 
   const formatDateDisplay = (dateStr: string) => {
@@ -122,14 +154,14 @@ export default function TeamDashboardPage() {
           </div>
         ) : teamData ? (
           <>
-            {/* Section 3: Personal Focus Reminder (Smart Intervention - Top of page per SPEC.md Section 7.2) */}
+            {/* Section 3: Personal Focus Reminder */}
             <div className="p-4 sm:p-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md flex items-start gap-3.5 shadow-sm">
               <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-500 shrink-0 mt-0.5">
                 <Lightbulb className="w-5 h-5" />
               </div>
               <div className="space-y-1">
                 <h4 className="text-xs font-bold font-mono text-amber-500 uppercase tracking-wider">
-                  Quality Focus Reminder (Smart Intervention)
+                  Quality Focus Reminder
                 </h4>
                 <p className="text-xs text-foreground/90 font-medium leading-relaxed">
                   {teamData.focusReminder.text}
@@ -191,7 +223,16 @@ export default function TeamDashboardPage() {
                           </span>
                         </div>
 
-                        <h4 className="font-bold text-xs">{item.title}</h4>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <h4 className="font-bold text-xs">{item.title}</h4>
+                          {item.urgency && (
+                            <UrgencyBadge
+                              urgency={item.urgency}
+                              delayDays={item.delayDays}
+                              daysUntilDue={item.daysUntilDue}
+                            />
+                          )}
+                        </div>
 
                         {/* Creator's Feedback Note */}
                         <div className="p-3 rounded-xl glass-subtle text-xs space-y-1">
@@ -231,9 +272,9 @@ export default function TeamDashboardPage() {
                     <Clock className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm">Up Next Queue</h3>
+                    <h3 className="font-bold text-sm">Up Next Register</h3>
                     <p className="text-[11px] text-muted-foreground font-mono">
-                      Predecessors cleared • Sorted by buffered Due Date (SPEC.md Section 7.2.2)
+                      Active deliverables sorted by target date
                     </p>
                   </div>
                 </div>
@@ -260,6 +301,13 @@ export default function TeamDashboardPage() {
                             {item.uniqueContentId || "Slot"}
                           </span>
                           <span className="text-xs font-bold">{item.title}</span>
+                          {item.urgency && (
+                            <UrgencyBadge
+                              urgency={item.urgency}
+                              delayDays={item.delayDays}
+                              daysUntilDue={item.daysUntilDue}
+                            />
+                          )}
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono glass-subtle text-muted-foreground">
                             {item.brandName && (
                               <>
@@ -274,10 +322,16 @@ export default function TeamDashboardPage() {
                             <span>{item.contentTypeName}</span>
                           </span>
                         </div>
-                        <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5">
+                        <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5 flex-wrap">
                           <span>Task: <strong className="text-foreground">{item.taskName}</strong></span>
                           <span>•</span>
-                          <span>Due Date: <strong className="text-primary">{formatDateDisplay(item.teamDueDate)}</strong></span>
+                          <span>Target Date: <strong className="text-primary">{formatDateDisplay(item.teamDueDate)}</strong></span>
+                          {item.publishDate && (
+                            <>
+                              <span>•</span>
+                              <span>Publish: <strong>{formatDateDisplay(item.publishDate)}</strong></span>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -294,17 +348,17 @@ export default function TeamDashboardPage() {
               )}
             </div>
 
-            {/* Section 4: Performance & Milestone Tracker */}
+            {/* Section 4: Quality & Queue Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="card-theme p-5 rounded-2xl flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] font-mono text-muted-foreground">On-Time Delivery</span>
-                  <div className="text-2xl font-bold font-mono text-emerald-400 mt-0.5">
-                    {teamData.performance.onTimeRate}%
+                  <span className="text-[11px] font-mono text-muted-foreground">Delayed Deliverables</span>
+                  <div className={`text-2xl font-bold font-mono mt-0.5 ${(teamData.performance.delayedCount ?? 0) > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                    {teamData.performance.delayedCount ?? 0}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Submissions within buffered deadline</p>
+                  <p className="text-[10px] text-muted-foreground">Assigned tasks past target date</p>
                 </div>
-                <div className="p-3 rounded-2xl bg-emerald-500/15 text-emerald-400">
+                <div className={`p-3 rounded-2xl ${(teamData.performance.delayedCount ?? 0) > 0 ? "bg-red-500/15 text-red-400" : "bg-emerald-500/15 text-emerald-400"}`}>
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
               </div>
@@ -313,7 +367,9 @@ export default function TeamDashboardPage() {
                 <div>
                   <span className="text-[11px] font-mono text-muted-foreground">First-Try Approval Rate</span>
                   <div className="text-2xl font-bold font-mono text-primary mt-0.5">
-                    {teamData.performance.firstTryRate}%
+                    {teamData.performance.firstTryRate !== null && teamData.performance.firstTryRate !== undefined
+                      ? `${teamData.performance.firstTryRate}%`
+                      : "—"}
                   </div>
                   <p className="text-[10px] text-muted-foreground">Approved at V1 without rework</p>
                 </div>
@@ -324,11 +380,11 @@ export default function TeamDashboardPage() {
 
               <div className="card-theme p-5 rounded-2xl flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] font-mono text-muted-foreground">Deliverables Produced</span>
+                  <span className="text-[11px] font-mono text-muted-foreground">Deliverables Submitted</span>
                   <div className="text-2xl font-bold font-mono text-foreground mt-0.5">
                     {teamData.performance.completedDeliverables}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Total iterations submitted</p>
+                  <p className="text-[10px] text-muted-foreground">Total cuts submitted across projects</p>
                 </div>
                 <div className="p-3 rounded-2xl glass-subtle text-muted-foreground">
                   <Clapperboard className="w-6 h-6" />
@@ -341,7 +397,7 @@ export default function TeamDashboardPage() {
 
       {/* Footer */}
       <footer className="w-full text-center text-xs text-muted-foreground py-4 font-mono border-t border-border max-w-6xl mx-auto">
-        ContentPipe • Team Member Workspace (SPEC.md Section 7.2)
+        ContentPipe • Team Workspace Monitor
       </footer>
     </div>
   );

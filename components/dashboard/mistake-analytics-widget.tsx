@@ -51,7 +51,7 @@ export function MistakeAnalyticsWidget({
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-sm">Team Mistake & Rework Analytics</h3>
+              <h3 className="font-bold text-sm">Quality Control</h3>
               {activeBrand && (
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-primary/10 text-primary border border-primary/20">
                   <span
@@ -63,7 +63,7 @@ export function MistakeAnalyticsWidget({
               )}
             </div>
             <p className="text-[11px] text-muted-foreground font-mono">
-              Categorized quality feedback & First-Pass efficiency (SPEC.md Section 7.1.3)
+              First-pass signoff rate &amp; top revision patterns
             </p>
           </div>
         </div>

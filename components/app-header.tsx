@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { clearAllSessionCache } from "@/lib/session-cache";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import {
   Clapperboard,
@@ -46,9 +47,13 @@ export function AppHeader() {
     },
     {
       label: "Index",
-      href: "/tracker",
+      href: "/index",
       icon: Table,
-      active: pathname.startsWith("/tracker") || pathname.startsWith("/scripts") || pathname.startsWith("/content"),
+      active:
+        pathname.startsWith("/index") ||
+        pathname.startsWith("/tracker") ||
+        pathname.startsWith("/scripts") ||
+        pathname.startsWith("/content"),
     },
     {
       label: isCreator ? "Settings" : "Preferences",
@@ -288,6 +293,7 @@ export function AppHeader() {
                     type="button"
                     onClick={() => {
                       setDropdownOpen(false);
+                      clearAllSessionCache();
                       signOut({ callbackUrl: "/" });
                     }}
                     className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl hover:bg-destructive/15 text-destructive font-medium transition-colors duration-200 cursor-pointer"

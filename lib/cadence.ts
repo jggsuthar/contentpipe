@@ -59,42 +59,49 @@ export function generateFuturePublishDates(
     return DAY_NAME_TO_INDEX[cleanDay] !== undefined ? DAY_NAME_TO_INDEX[cleanDay] : 2;
   });
 
-  // Anchor date for multi-week cycles (default to start date or reference date)
-  const anchorDate = config.cadence_start_date
-    ? new Date(config.cadence_start_date)
-    : new Date(referenceDate);
+  // Use UTC Noon (12:00:00Z) for all calendar dates so date keys (YYYY-MM-DD)
+  // never shift across timezones (e.g. IST vs UTC).
+  const refYear = referenceDate.getFullYear();
+  const refMonth = referenceDate.getMonth();
+  const refDay = referenceDate.getDate();
 
-  // Align anchor to the start of its week (Sunday)
-  anchorDate.setHours(0, 0, 0, 0);
-  anchorDate.setDate(anchorDate.getDate() - anchorDate.getDay());
+  // Anchor date for multi-week cycles (default to start date or reference date)
+  const rawAnchor = config.cadence_start_date
+    ? new Date(config.cadence_start_date)
+    : null;
+  const anchorDate = rawAnchor
+    ? new Date(
+        Date.UTC(
+          rawAnchor.getUTCFullYear(),
+          rawAnchor.getUTCMonth(),
+          rawAnchor.getUTCDate(),
+          12,
+          0,
+          0,
+          0
+        )
+      )
+    : new Date(Date.UTC(refYear, refMonth, refDay, 12, 0, 0, 0));
+
+  // Align anchor to the start of its week (Sunday) in UTC
+  anchorDate.setUTCDate(anchorDate.getUTCDate() - anchorDate.getUTCDay());
 
   // Calculate rolling horizon end date: covers the next `horizonMonths` full calendar months
-  // e.g. If referenceDate is March (any day), monthIndex=2, and horizonMonths=6:
-  // new Date(year, 2 + 6, 0) = August 31 (6 full calendar months: Mar, Apr, May, Jun, Jul, Aug).
-  // As soon as the date changes to April 1 (monthIndex=3):
-  // new Date(year, 3 + 6, 0) = September 30 (6 full calendar months: Apr, May, Jun, Jul, Aug, Sep).
   const horizonEndDate = new Date(
-    referenceDate.getFullYear(),
-    referenceDate.getMonth() + horizonMonths,
-    0, // Day 0 gives the last day of the horizon's final month
-    23,
-    59,
-    59,
-    999
+    Date.UTC(refYear, refMonth + horizonMonths, 0, 23, 59, 59, 999)
   );
 
-  // Start checking from beginning of referenceDate
-  const current = new Date(referenceDate);
-  current.setHours(0, 0, 0, 0);
+  // Start checking from UTC Noon of referenceDate
+  const current = new Date(Date.UTC(refYear, refMonth, refDay, 12, 0, 0, 0));
 
   // Walk day by day up to horizonEndDate
   while (current <= horizonEndDate) {
-    const dayOfWeek = current.getDay();
+    const dayOfWeek = current.getUTCDay();
     const dayName = INDEX_TO_DAY_NAME[dayOfWeek];
 
     // Calculate which week of the cycle this date falls into (1, 2, 3, or 4)
     const msDiff = current.getTime() - anchorDate.getTime();
-    const daysDiff = Math.floor(msDiff / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.round(msDiff / (1000 * 60 * 60 * 24));
     const weekDiff = Math.floor(daysDiff / 7);
     const cycleWeekNumber =
       cycleIntervalWeeks === 1
@@ -115,7 +122,7 @@ export function generateFuturePublishDates(
       }
     }
 
-    current.setDate(current.getDate() + 1);
+    current.setUTCDate(current.getUTCDate() + 1);
   }
 
   return dates;
@@ -134,9 +141,21 @@ export function checkDateCadenceMatch(
   targetDate: Date | string,
   config: CadenceConfig
 ): CadenceMatchResult {
-  const date = typeof targetDate === "string" ? new Date(targetDate) : targetDate;
-  const uploadDays = config.upload_days && config.upload_days.length > 0 ? config.upload_days : ["Tuesday"];
-  const dayOfWeek = date.getDay();
+  const rawDate = typeof targetDate === "string" ? new Date(targetDate) : targetDate;
+  const checkDate = new Date(
+    Date.UTC(
+      rawDate.getUTCFullYear(),
+      rawDate.getUTCMonth(),
+      rawDate.getUTCDate(),
+      12,
+      0,
+      0,
+      0
+    )
+  );
+  const uploadDays =
+    config.upload_days && config.upload_days.length > 0 ? config.upload_days : ["Tuesday"];
+  const dayOfWeek = checkDate.getUTCDay();
   const dayName = INDEX_TO_DAY_NAME[dayOfWeek];
 
   const cycleIntervalWeeks =
@@ -151,17 +170,24 @@ export function checkDateCadenceMatch(
   const hasMultiWeekTags = uploadDays.some((d) => /^W\d+-/i.test(d));
 
   // Anchor date for multi-week cycles
-  const anchorDate = config.cadence_start_date
+  const rawAnchor = config.cadence_start_date
     ? new Date(config.cadence_start_date)
     : new Date();
-  anchorDate.setHours(0, 0, 0, 0);
-  anchorDate.setDate(anchorDate.getDate() - anchorDate.getDay());
-
-  const checkDate = new Date(date);
-  checkDate.setHours(0, 0, 0, 0);
+  const anchorDate = new Date(
+    Date.UTC(
+      rawAnchor.getUTCFullYear(),
+      rawAnchor.getUTCMonth(),
+      rawAnchor.getUTCDate(),
+      12,
+      0,
+      0,
+      0
+    )
+  );
+  anchorDate.setUTCDate(anchorDate.getUTCDate() - anchorDate.getUTCDay());
 
   const msDiff = checkDate.getTime() - anchorDate.getTime();
-  const daysDiff = Math.floor(msDiff / (1000 * 60 * 60 * 24));
+  const daysDiff = Math.round(msDiff / (1000 * 60 * 60 * 24));
   const weekDiff = Math.floor(daysDiff / 7);
   const cycleWeekNumber =
     cycleIntervalWeeks === 1

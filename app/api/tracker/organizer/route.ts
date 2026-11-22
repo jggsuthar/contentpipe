@@ -82,8 +82,7 @@ export async function POST(req: NextRequest) {
     });
 
     const now = new Date();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0));
 
     const visibleTasks = contentType.workflow_tasks.filter((t) => !t.is_hidden);
     const fromLevelLower = from_level.toLowerCase().trim();
@@ -91,11 +90,14 @@ export async function POST(req: NextRequest) {
     // 2. Classify items: Locked vs Selected for Reorganization
     const lockedItems: typeof activeItems = [];
     const selectedItems: typeof activeItems = [];
+    let skippedManualCount = 0;
 
     for (const item of activeItems) {
       if (!item.publish_date) continue;
-      const itemPDate = new Date(item.publish_date);
-      itemPDate.setHours(0, 0, 0, 0);
+      const rawPDate = new Date(item.publish_date);
+      const itemPDate = new Date(
+        Date.UTC(rawPDate.getUTCFullYear(), rawPDate.getUTCMonth(), rawPDate.getUTCDate(), 12, 0, 0, 0)
+      );
 
       // Rule: Never reorganize any date that is already published
       const allPriorDone = visibleTasks.every((t) => {
@@ -111,14 +113,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Check manually added condition
-      if (item.is_manual_publish_date && !include_manual) {
-        lockedItems.push(item);
-        continue;
-      }
-
-      // Check level filter:
-      // "What level onwards placeholders to be selected: Ideation is not done, Task 1 is not done... etc."
+      // Check level filter FIRST so we know whether manual exclusion skipped qualifying items
       let qualifies = false;
       if (fromLevelLower === "ideation") {
         qualifies = !item.title || !item.unique_content_id;
@@ -129,13 +124,10 @@ export async function POST(req: NextRequest) {
           (t) => t.task_name.toLowerCase() === fromLevelLower
         );
         if (targetTaskIdx !== -1) {
-          // If Ideation is not done, automatically qualifies
           const isIdeationDone = Boolean(item.title && item.unique_content_id);
           if (!isIdeationDone) {
             qualifies = true;
           } else {
-            // Check all tasks from 0 to targetTaskIdx
-            // If ANY task up to targetTask is not done, this item qualifies for reorganization
             const tasksUpToTarget = visibleTasks.slice(0, targetTaskIdx + 1);
             const allUpToTargetDone = tasksUpToTarget.every((t) => {
               const tKey = t.task_name.toLowerCase();
@@ -146,6 +138,13 @@ export async function POST(req: NextRequest) {
             qualifies = !allUpToTargetDone;
           }
         }
+      }
+
+      // Check manually added condition
+      if (qualifies && item.is_manual_publish_date && !include_manual) {
+        skippedManualCount++;
+        lockedItems.push(item);
+        continue;
       }
 
       if (qualifies) {
@@ -159,28 +158,51 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         reorganized_count: 0,
+        matched_count: 0,
+        skipped_manual_count: skippedManualCount,
         message: "No uncompleted placeholders match the selected filter.",
         preview: [],
       });
     }
 
-    // 3. Determine Anchor Point date
+    // 3. Determine Anchor Point date (UTC Noon)
     let anchorDate: Date;
     if (anchor_mode === "earliest_future_cadence") {
       const futureCadenceFromToday = generateFuturePublishDates(cadenceConfig, 6, today);
       const firstFutureCadence = futureCadenceFromToday.find((d) => d.getTime() >= today.getTime());
       anchorDate = firstFutureCadence ? new Date(firstFutureCadence) : new Date(today);
     } else if (anchor_mode === "manual_date" && manual_anchor_date) {
-      anchorDate = new Date(manual_anchor_date);
+      const parsedAnchor = new Date(manual_anchor_date);
+      anchorDate = new Date(
+        Date.UTC(
+          parsedAnchor.getUTCFullYear(),
+          parsedAnchor.getUTCMonth(),
+          parsedAnchor.getUTCDate(),
+          12,
+          0,
+          0,
+          0
+        )
+      );
     } else {
       // Default: "earliest_selection" (earliest date from the selection)
       const selectedTimes = selectedItems
         .filter((item) => item.publish_date !== null)
         .map((item) => new Date(item.publish_date as Date).getTime());
       const minSelectedTime = selectedTimes.length > 0 ? Math.min(...selectedTimes) : today.getTime();
-      anchorDate = new Date(minSelectedTime);
+      const earliest = new Date(minSelectedTime);
+      anchorDate = new Date(
+        Date.UTC(
+          earliest.getUTCFullYear(),
+          earliest.getUTCMonth(),
+          earliest.getUTCDate(),
+          12,
+          0,
+          0,
+          0
+        )
+      );
     }
-    anchorDate.setHours(0, 0, 0, 0);
 
     // 4. Generate future cadence publish dates from anchorDate onwards (12 months horizon for plenty of slots)
     const allCadenceDates = generateFuturePublishDates(cadenceConfig, 12, anchorDate);
@@ -262,6 +284,8 @@ export async function POST(req: NextRequest) {
         success: true,
         dry_run: true,
         reorganized_count: preview.length,
+        matched_count: selectedItems.length,
+        skipped_manual_count: skippedManualCount,
         locked_count: lockedItems.length,
         preview,
       });

@@ -11,6 +11,7 @@ import {
   ParsedScriptRow,
 } from "@/lib/migration-parser";
 import { DEFAULT_SCRIPT_COL_DEFS, ScriptColumnDef } from "@/components/settings/content-types-tab";
+import { checkDateCadenceMatch, CadenceConfig } from "@/lib/cadence";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -304,135 +305,171 @@ export async function POST(req: NextRequest) {
 
     const visibleWorkflowTasks = contentType.workflow_tasks.filter((t) => !t.is_hidden);
 
-    const transactionResult = await prisma.$transaction(async (tx) => {
-      let createdCount = 0;
-      let updatedCount = 0;
-      let scriptCount = 0;
+    let parsedUploadDays: string[] = ["Tuesday"];
+    try {
+      parsedUploadDays = JSON.parse(contentType.upload_days || "[\"Tuesday\"]");
+    } catch {
+      parsedUploadDays = ["Tuesday"];
+    }
+    const migrationCadenceConfig: CadenceConfig = {
+      cadence_type: contentType.cadence_type as any,
+      cadence_start_date: contentType.cadence_start_date,
+      upload_days: parsedUploadDays,
+    };
 
-      const itemRecordMap = new Map<string, string>(); // contentId -> ContentItem.id
+    const existingIdByContentId = new Map<string, string>();
+    for (const row of existingDbItems) {
+      if (row.unique_content_id) {
+        existingIdByContentId.set(row.unique_content_id, row.id);
+      }
+    }
 
-      // 1. Process and save Content Items
-      for (const item of parsedIndexItems) {
-        const existing = await tx.contentItem.findUnique({
-          where: { unique_content_id: item.contentId },
-        });
+    const transactionResult = await prisma.$transaction(
+      async (tx) => {
+        let createdCount = 0;
+        let updatedCount = 0;
+        let scriptCount = 0;
 
-        let itemId: string;
+        const itemRecordMap = new Map<string, string>(); // contentId -> ContentItem.id
+        const overwriteItemIds: string[] = [];
+        const pendingTaskItems: { itemId: string; item: ParsedIndexItem }[] = [];
 
-        if (existing) {
-          if (conflict_resolution === "skip") {
-            itemRecordMap.set(item.contentId, existing.id);
-            continue;
+        // 1. Process and save Content Items (no per-row findUnique/deleteMany/createMany N+1 round-trips)
+        for (const item of parsedIndexItems) {
+          const existingId = existingIdByContentId.get(item.contentId);
+          let itemId: string;
+
+          const matchesCadence = checkDateCadenceMatch(
+            item.publishDate,
+            migrationCadenceConfig
+          ).matches;
+
+          if (existingId) {
+            if (conflict_resolution === "skip") {
+              itemRecordMap.set(item.contentId, existingId);
+              continue;
+            }
+
+            const updated = await tx.contentItem.update({
+              where: { id: existingId },
+              data: {
+                content_type_id: contentType.id,
+                brand_id: contentType.brand_id || null,
+                title: item.title,
+                publish_date: item.publishDate,
+                published_url: item.contentLink || null,
+                is_archived: item.isArchived,
+                is_manual_publish_date: !matchesCadence,
+              },
+            });
+            itemId = updated.id;
+            updatedCount++;
+            overwriteItemIds.push(itemId);
+          } else {
+            const created = await tx.contentItem.create({
+              data: {
+                content_type_id: contentType.id,
+                brand_id: contentType.brand_id || null,
+                unique_content_id: item.contentId,
+                title: item.title,
+                ideation_date: new Date(),
+                publish_date: item.publishDate,
+                published_url: item.contentLink || null,
+                is_archived: item.isArchived,
+                is_manual_publish_date: !matchesCadence,
+              },
+            });
+            itemId = created.id;
+            createdCount++;
           }
 
-          // Overwrite existing record
-          const updated = await tx.contentItem.update({
-            where: { id: existing.id },
-            data: {
-              content_type_id: contentType.id,
-              title: item.title,
-              publish_date: item.publishDate,
-              published_url: item.contentLink || null,
-              is_archived: item.isArchived,
-              is_manual_publish_date: true,
-            },
-          });
-          itemId = updated.id;
-          updatedCount++;
-
-          // Delete old task instances to rebuild cleanly
-          await tx.taskInstance.deleteMany({
-            where: { content_item_id: itemId },
-          });
-        } else {
-          // Create new record
-          const created = await tx.contentItem.create({
-            data: {
-              content_type_id: contentType.id,
-              unique_content_id: item.contentId,
-              title: item.title,
-              ideation_date: new Date(),
-              publish_date: item.publishDate,
-              published_url: item.contentLink || null,
-              is_archived: item.isArchived,
-              is_manual_publish_date: true,
-            },
-          });
-          itemId = created.id;
-          createdCount++;
+          itemRecordMap.set(item.contentId, itemId);
+          pendingTaskItems.push({ itemId, item });
         }
 
-        itemRecordMap.set(item.contentId, itemId);
+        // 2. Batch delete & batch create TaskInstances in 2 queries instead of 2*N queries
+        if (overwriteItemIds.length > 0) {
+          await tx.taskInstance.deleteMany({
+            where: { content_item_id: { in: overwriteItemIds } },
+          });
+        }
 
-        // 2. Create TaskInstances explicitly bypassing automations
-        const taskCreateData = visibleWorkflowTasks.map((t) => {
-          const tKey = t.task_name.toLowerCase().trim();
-          let status = "not_done";
+        const allTaskCreateData = pendingTaskItems.flatMap(({ itemId, item }) =>
+          visibleWorkflowTasks.map((t) => {
+            const tKey = t.task_name.toLowerCase().trim();
+            let status = "not_done";
 
-          if (tKey === "ideation") {
-            status = "done";
-          } else if (tKey === "publish") {
-            const pTime = item.publishDate.getTime();
-            status = item.isArchived || pTime <= today.getTime() ? "done" : "not_done";
-          } else {
-            const isDone = Boolean(item.taskStatuses[t.task_name]);
-            status = isDone ? "done" : "not_done";
-          }
+            if (tKey === "ideation") {
+              status = "done";
+            } else if (tKey === "publish") {
+              const pTime = item.publishDate.getTime();
+              status = item.isArchived || pTime <= today.getTime() ? "done" : "not_done";
+            } else {
+              const isDone = Boolean(item.taskStatuses[t.task_name]);
+              status = isDone ? "done" : "not_done";
+            }
 
-          return {
-            content_item_id: itemId,
-            task_name: t.task_name,
-            status,
-          };
-        });
+            return {
+              content_item_id: itemId,
+              task_name: t.task_name,
+              status,
+            };
+          })
+        );
 
-        await tx.taskInstance.createMany({
-          data: taskCreateData,
-        });
+        if (allTaskCreateData.length > 0) {
+          await tx.taskInstance.createMany({
+            data: allTaskCreateData,
+          });
+        }
+
+        // 3. Process and save Scripts rows
+        const scriptsByContentId = new Map<string, ParsedScriptRow[]>();
+        for (const sRow of parsedScriptRows) {
+          const list = scriptsByContentId.get(sRow.contentId) || [];
+          list.push(sRow);
+          scriptsByContentId.set(sRow.contentId, list);
+        }
+
+        for (const [contentId, rows] of scriptsByContentId) {
+          const contentItemId = itemRecordMap.get(contentId);
+          if (!contentItemId) continue;
+
+          rows.sort((a, b) => a.srNo - b.srNo);
+
+          const rowsData = rows.map((r, idx) => ({
+            sr_no: idx + 1,
+            ...r.data,
+          }));
+
+          await tx.script.upsert({
+            where: { content_item_id: contentItemId },
+            create: {
+              content_item_id: contentItemId,
+              status: "pending",
+              columns_schema: JSON.stringify(scriptCols),
+              rows_data: JSON.stringify(rowsData),
+              custom_notes: "",
+              canvas_drawings: "",
+              media_attachments: "[]",
+              comments: "[]",
+            },
+            update: {
+              columns_schema: JSON.stringify(scriptCols),
+              rows_data: JSON.stringify(rowsData),
+            },
+          });
+
+          scriptCount++;
+        }
+
+        return { createdCount, updatedCount, scriptCount };
+      },
+      {
+        maxWait: 15000,
+        timeout: 60000,
       }
-
-      // 3. Process and save Scripts rows
-      const scriptsByContentId = new Map<string, ParsedScriptRow[]>();
-      for (const sRow of parsedScriptRows) {
-        const list = scriptsByContentId.get(sRow.contentId) || [];
-        list.push(sRow);
-        scriptsByContentId.set(sRow.contentId, list);
-      }
-
-      for (const [contentId, rows] of scriptsByContentId) {
-        const contentItemId = itemRecordMap.get(contentId);
-        if (!contentItemId) continue;
-
-        rows.sort((a, b) => a.srNo - b.srNo);
-
-        const rowsData = rows.map((r, idx) => ({
-          sr_no: idx + 1,
-          ...r.data,
-        }));
-
-        await tx.script.upsert({
-          where: { content_item_id: contentItemId },
-          create: {
-            content_item_id: contentItemId,
-            status: "pending",
-            columns_schema: JSON.stringify(scriptCols),
-            rows_data: JSON.stringify(rowsData),
-            custom_notes: "",
-            canvas_drawings: "",
-            media_attachments: "[]",
-            comments: "[]",
-          },
-          update: {
-            columns_schema: JSON.stringify(scriptCols),
-            rows_data: JSON.stringify(rowsData),
-          },
-        });
-
-        scriptCount++;
-      }
-
-      return { createdCount, updatedCount, scriptCount };
-    });
+    );
 
     return NextResponse.json({
       success: true,

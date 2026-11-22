@@ -6,6 +6,7 @@ import { getDynamicUserProfile } from "@/lib/constants/users";
 import { getRoleConfigForContentType } from "@/lib/permissions";
 import { generateFuturePublishDates, checkDateCadenceMatch } from "@/lib/cadence";
 import { ensureDefaultBrandAndBackfill } from "@/lib/brand-helpers";
+import { matchesBrandParam, matchesSeriesParam } from "@/lib/slug-utils";
 import {
   calculateTaskTargetDates,
   checkArchiveEligibility,
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
 
     if (allowedContentTypes.length === 0) {
       const fallbackBrand =
-        (brandId && allowedBrands.find((b) => b.id === brandId)) ||
+        (brandId && allowedBrands.find((b) => matchesBrandParam(b, brandId))) ||
         allowedBrands[0] ||
         null;
       return NextResponse.json({
@@ -94,31 +95,37 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 2. Select active Brand and target Content Series from allowed sets
+    // 2. Select active Brand and target Content Series from allowed sets (supports IDs or URL slugs)
     let selectedBrand =
-      (brandId && allowedBrands.find((b) => b.id === brandId)) || null;
+      (brandId && allowedBrands.find((b) => matchesBrandParam(b, brandId))) || null;
     let targetTypeId: string | null = null;
 
     if (selectedBrand) {
       const brandSeries = allowedContentTypes.filter(
         (t) => t.brand_id === selectedBrand!.id
       );
-      if (contentTypeId && brandSeries.some((t) => t.id === contentTypeId)) {
-        targetTypeId = contentTypeId;
+      const matchedSeries = contentTypeId
+        ? brandSeries.find((t) => matchesSeriesParam(t, contentTypeId))
+        : null;
+      if (matchedSeries) {
+        targetTypeId = matchedSeries.id;
       } else {
         targetTypeId = brandSeries[0]?.id ?? null;
       }
-    } else if (
-      contentTypeId &&
-      allowedContentTypes.some((t) => t.id === contentTypeId)
-    ) {
-      targetTypeId = contentTypeId;
-      const matchedType = allowedContentTypes.find((t) => t.id === targetTypeId);
-      selectedBrand =
-        allowedBrands.find((b) => b.id === matchedType?.brand_id) ||
-        allowedBrands[0] ||
-        null;
-    } else {
+    } else if (contentTypeId) {
+      const matchedType = allowedContentTypes.find((t) =>
+        matchesSeriesParam(t, contentTypeId)
+      );
+      if (matchedType) {
+        targetTypeId = matchedType.id;
+        selectedBrand =
+          allowedBrands.find((b) => b.id === matchedType.brand_id) ||
+          allowedBrands[0] ||
+          null;
+      }
+    }
+
+    if (!targetTypeId && !selectedBrand) {
       selectedBrand =
         allowedBrands.find((b) =>
           allowedContentTypes.some((t) => t.brand_id === b.id)

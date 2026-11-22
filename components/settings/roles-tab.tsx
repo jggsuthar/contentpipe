@@ -34,6 +34,13 @@ import {
   SubmissionPermissions,
   FolderArchitectureItem,
 } from "@/types/database";
+import {
+  getSessionCache,
+  hydrateSessionCacheFromStorage,
+  setSessionCache,
+} from "@/lib/session-cache";
+
+const SETTINGS_ROLES_CACHE_KEY = "settings:roles";
 
 interface RoleItem {
   id: string;
@@ -67,10 +74,18 @@ interface ContentTypeSummary {
 }
 
 export function RolesTab() {
-  const [roles, setRoles] = useState<RoleItem[]>([]);
-  const [brands, setBrands] = useState<BrandItem[]>([]);
-  const [contentTypes, setContentTypes] = useState<ContentTypeSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialCache = getSessionCache<{
+    roles: RoleItem[];
+    brands: BrandItem[];
+    contentTypes: ContentTypeSummary[];
+  }>(SETTINGS_ROLES_CACHE_KEY);
+
+  const [roles, setRoles] = useState<RoleItem[]>(initialCache?.roles || []);
+  const [brands, setBrands] = useState<BrandItem[]>(initialCache?.brands || []);
+  const [contentTypes, setContentTypes] = useState<ContentTypeSummary[]>(
+    initialCache?.contentTypes || []
+  );
+  const [loading, setLoading] = useState(!initialCache);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -100,39 +115,66 @@ export function RolesTab() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Fetch roles, brands, and content series
-  const fetchRolesAndTypes = async () => {
+  // Fetch roles, brands, and content series (SWR)
+  const fetchRolesAndTypes = async (options?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) {
+        setLoading(true);
+      }
       const [rolesRes, brandsRes, typesRes] = await Promise.all([
         fetch("/api/settings/roles"),
         fetch("/api/settings/brands"),
         fetch("/api/settings/content-types"),
       ]);
 
+      let nextRoles = roles;
+      let nextBrands = brands;
+      let nextTypes = contentTypes;
+
       if (rolesRes.ok) {
-        const rolesData = await rolesRes.json();
-        setRoles(rolesData);
+        nextRoles = await rolesRes.json();
+        setRoles(nextRoles);
       }
 
       if (brandsRes.ok) {
-        const brandsData = await brandsRes.json();
-        setBrands(brandsData);
+        nextBrands = await brandsRes.json();
+        setBrands(nextBrands);
       }
 
       if (typesRes.ok) {
-        const typesData = await typesRes.json();
-        setContentTypes(typesData);
+        nextTypes = await typesRes.json();
+        setContentTypes(nextTypes);
+      }
+
+      if (rolesRes.ok && brandsRes.ok && typesRes.ok) {
+        setSessionCache(SETTINGS_ROLES_CACHE_KEY, {
+          roles: nextRoles,
+          brands: nextBrands,
+          contentTypes: nextTypes,
+        });
       }
     } catch (err) {
       console.error("Error loading team roles:", err);
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchRolesAndTypes();
+    const cached =
+      getSessionCache<any>(SETTINGS_ROLES_CACHE_KEY) ||
+      hydrateSessionCacheFromStorage<any>(SETTINGS_ROLES_CACHE_KEY);
+    if (cached && Array.isArray(cached.roles)) {
+      setRoles(cached.roles);
+      setBrands(cached.brands || []);
+      setContentTypes(cached.contentTypes || []);
+      setLoading(false);
+      fetchRolesAndTypes({ silent: true });
+    } else {
+      fetchRolesAndTypes();
+    }
   }, []);
 
   // Helper: create a full default config for a specific Content Type

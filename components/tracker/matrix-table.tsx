@@ -444,6 +444,58 @@ export function MatrixTable({
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
+  // Urgency badge for unfinished tasks: Delay: {n}d (overdue) | Near (+7d -> 0d orange-to-red)
+  const renderDeadlineUrgencyBadge = (targetIso?: string | null, status?: TaskStatus) => {
+    if (!targetIso || status === "done") return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(targetIso);
+    due.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      const delayDays = Math.abs(diffDays);
+      return (
+        <span
+          className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold bg-red-600 text-white border border-red-400/50 shadow-xs mt-0.5 whitespace-nowrap"
+          title={`Overdue by ${delayDays} day${delayDays === 1 ? "" : "s"}`}
+        >
+          Delay: {delayDays}d
+        </span>
+      );
+    }
+
+    if (diffDays <= 7) {
+      // Gradient interpolation: +7 days (orange) -> 0 days (red)
+      const t = (7 - diffDays) / 7;
+      const r = Math.round(249 + (239 - 249) * t);
+      const g = Math.round(138 + (68 - 138) * t);
+      const b = Math.round(22 + (68 - 22) * t);
+      const endR = Math.round(234 + (210 - 234) * t);
+      const endG = Math.round(88 + (38 - 88) * t);
+      const endB = Math.round(12 + (38 - 12) * t);
+
+      return (
+        <span
+          className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold text-white border border-white/20 shadow-xs mt-0.5 whitespace-nowrap"
+          style={{
+            backgroundImage: `linear-gradient(135deg, rgb(${r}, ${g}, ${b}), rgb(${endR}, ${endG}, ${endB}))`,
+          }}
+          title={
+            diffDays === 0
+              ? "Due today"
+              : `Due in ${diffDays} day${diffDays === 1 ? "" : "s"}`
+          }
+        >
+          Near
+        </span>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="w-full card-theme rounded-2xl">
       {/* Sequential Dependency or Action Error Banner */}
@@ -785,6 +837,12 @@ export function MatrixTable({
                           : "not_done"
                         : existingInstance?.status || "not_done";
 
+                      const urgencyTargetIso = isPublish
+                        ? targetDates?.worst_case || row.publish_date
+                        : isCreator
+                        ? targetDates?.worst_case
+                        : targetDates?.team || targetDates?.worst_case;
+
                       const menuKey = `${row.id}_${task.task_name}`;
                       const isMenuOpen = activeStatusMenuKey === menuKey;
                       const isUpdating = statusUpdatingKey === menuKey;
@@ -842,6 +900,7 @@ export function MatrixTable({
                                   )}
                                 </span>
                               )}
+                              {renderDeadlineUrgencyBadge(urgencyTargetIso, taskStatus)}
                             </div>
                           ) : isPublish ? (
                             <div className="flex flex-col items-center justify-center gap-0.5">
@@ -932,6 +991,7 @@ export function MatrixTable({
                                   </span>
                                 );
                               })()}
+                              {renderDeadlineUrgencyBadge(urgencyTargetIso, taskStatus)}
                             </div>
                           ) : (
                             /* Intermediate workflow tasks */
@@ -1097,6 +1157,7 @@ export function MatrixTable({
                                 )}
                               </span>
                             )}
+                            {renderDeadlineUrgencyBadge(urgencyTargetIso, taskStatus)}
                           </div>
                         )}
                       </td>
@@ -1322,16 +1383,14 @@ export function MatrixTable({
                   return (
                     <div
                       key={task.id}
-                      onClick={async () => {
+                      onClick={() => {
                         if (onToggleMiscTask) {
-                          await onToggleMiscTask(activeMiscRow.id, task.task_name, !isDone);
-                          // Update local modal state immediately
                           const updatedMisc = [...(activeMiscRow.misc_tasks_status || [])];
                           const idx = updatedMisc.findIndex(
                             (m) => m.task_name.toLowerCase() === task.task_name.toLowerCase()
                           );
                           if (idx >= 0) {
-                            updatedMisc[idx].is_done = !isDone;
+                            updatedMisc[idx] = { ...updatedMisc[idx], is_done: !isDone };
                           } else {
                             updatedMisc.push({ task_name: task.task_name, is_done: !isDone });
                           }
@@ -1339,6 +1398,7 @@ export function MatrixTable({
                             ...activeMiscRow,
                             misc_tasks_status: updatedMisc,
                           });
+                          void onToggleMiscTask(activeMiscRow.id, task.task_name, !isDone);
                         }
                       }}
                       className="p-2.5 rounded flex items-center justify-between hover:bg-muted/40 cursor-pointer border border-border/50 text-xs transition-colors"

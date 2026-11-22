@@ -16,6 +16,13 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
+import {
+  getSessionCache,
+  hydrateSessionCacheFromStorage,
+  setSessionCache,
+} from "@/lib/session-cache";
+
+const DEFAULTS_CACHE_KEY = "settings:defaults";
 
 interface DefaultsTabProps {
   isCreator?: boolean;
@@ -23,28 +30,35 @@ interface DefaultsTabProps {
 
 export function DefaultsTab({ isCreator = true }: DefaultsTabProps) {
   const { theme, setTheme } = useTheme();
+  const initialCache = getSessionCache<any>(DEFAULTS_CACHE_KEY);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialCache);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Form states
-  const [monthsOpen, setMonthsOpen] = useState<number>(3);
-  const [categories, setCategories] = useState<string[]>([
-    "Pacing / Dead Air",
-    "Audio / SFX",
-    "B-Roll / Visuals",
-    "Typography",
-    "Retention Hook",
-    "SOP Miss",
-  ]);
+  const [monthsOpen, setMonthsOpen] = useState<number>(
+    initialCache?.default_months_open || 3
+  );
+  const [categories, setCategories] = useState<string[]>(
+    Array.isArray(initialCache?.feedback_categories)
+      ? initialCache.feedback_categories
+      : [
+          "Pacing / Dead Air",
+          "Audio / SFX",
+          "B-Roll / Visuals",
+          "Typography",
+          "Retention Hook",
+          "SOP Miss",
+        ]
+  );
   const [newCatInput, setNewCatInput] = useState("");
 
-  // Fetch saved defaults from database
+  // Fetch saved defaults from database (SWR)
   useEffect(() => {
-    async function fetchDefaults() {
+    async function fetchDefaults(silent = false) {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const res = await fetch("/api/settings/defaults");
         if (res.ok) {
           const data = await res.json();
@@ -54,15 +68,26 @@ export function DefaultsTab({ isCreator = true }: DefaultsTabProps) {
             setTheme(migrateTheme(data.default_theme));
           }
           if (Array.isArray(data.feedback_categories)) setCategories(data.feedback_categories);
+          setSessionCache(DEFAULTS_CACHE_KEY, data);
         }
       } catch (err) {
         console.error("Failed to load settings defaults:", err);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     }
 
-    fetchDefaults();
+    const cached =
+      getSessionCache<any>(DEFAULTS_CACHE_KEY) ||
+      hydrateSessionCacheFromStorage<any>(DEFAULTS_CACHE_KEY);
+    if (cached) {
+      if (cached.default_months_open) setMonthsOpen(cached.default_months_open);
+      if (Array.isArray(cached.feedback_categories)) setCategories(cached.feedback_categories);
+      setLoading(false);
+      fetchDefaults(true);
+    } else {
+      fetchDefaults(false);
+    }
   }, []);
 
   const handleSave = async () => {
@@ -70,18 +95,20 @@ export function DefaultsTab({ isCreator = true }: DefaultsTabProps) {
       setSaving(true);
       setSaveSuccess(false);
 
+      const payload = {
+        default_months_open: monthsOpen,
+        default_id_generation_type: "date_counter",
+        default_theme: theme,
+        feedback_categories: categories,
+      };
       const res = await fetch("/api/settings/defaults", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          default_months_open: monthsOpen,
-          default_id_generation_type: "date_counter",
-          default_theme: theme,
-          feedback_categories: categories,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
+        setSessionCache(DEFAULTS_CACHE_KEY, payload);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       }
