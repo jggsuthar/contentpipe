@@ -66,10 +66,10 @@ function SettingsContent() {
             Please log in to access application settings and preferences.
           </p>
           <button
-            onClick={() => router.push("/login")}
+            onClick={() => router.push("/")}
             className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-250 cursor-pointer"
           >
-            Return to Login
+            Return to Home
           </button>
         </div>
       </div>

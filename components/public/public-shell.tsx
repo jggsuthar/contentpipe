@@ -45,15 +45,15 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
                 <span>Open Dashboard</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
-            ) : (
+            ) : pathname !== "/" ? (
               <Link
-                href="/login"
+                href="/"
                 className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 transition-all shadow-xs"
               >
                 <Lock className="w-3 h-3" />
                 <span>Sign In</span>
               </Link>
-            )}
+            ) : null}
           </div>
         </div>
       </header>

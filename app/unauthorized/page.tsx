@@ -53,7 +53,7 @@ export default function UnauthorizedPage() {
           {/* Action Buttons */}
           <div className="w-full flex flex-col sm:flex-row items-center gap-3">
             <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => signOut({ callbackUrl: "/" })}
               className="w-full sm:flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 hover:-translate-y-0.5 transition-all duration-250 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -61,11 +61,11 @@ export default function UnauthorizedPage() {
             </button>
 
             <Link
-              href="/login"
+              href="/"
               className="w-full sm:flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold glass-subtle hover:bg-muted/60 text-foreground transition-all duration-250 flex items-center justify-center gap-2"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Return to Login</span>
+              <span>Return to Home</span>
             </Link>
           </div>
         </div>

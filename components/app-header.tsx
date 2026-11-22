@@ -89,12 +89,11 @@ export function AppHeader() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Do not render authenticated app header on public, login, or error pages
+  // Do not render authenticated app header on public or error pages
   if (
     pathname === "/" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
-    pathname === "/login" ||
     pathname === "/unauthorized"
   ) {
     return null;
@@ -304,7 +303,7 @@ export function AppHeader() {
                     type="button"
                     onClick={() => {
                       setDropdownOpen(false);
-                      signOut({ callbackUrl: "/login" });
+                      signOut({ callbackUrl: "/" });
                     }}
                     className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl hover:bg-destructive/15 text-destructive font-medium transition-colors duration-200 cursor-pointer"
                   >

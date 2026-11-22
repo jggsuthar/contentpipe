@@ -20,8 +20,8 @@ export const authOptions: NextAuthOptions = {
   ],
 
   pages: {
-    signIn: "/login",
-    error: "/login",
+    signIn: "/",
+    error: "/",
   },
 
   session: {
@@ -37,7 +37,7 @@ export const authOptions: NextAuthOptions = {
      */
     async signIn({ user }) {
       if (!user?.email) {
-        return "/login?error=Unauthorized";
+        return "/?error=Unauthorized";
       }
 
       const email = user.email.toLowerCase().trim();
@@ -54,7 +54,7 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Deny access if unmapped in the database
-      return "/login?error=Unauthorized";
+      return "/?error=Unauthorized";
     },
 
     /**

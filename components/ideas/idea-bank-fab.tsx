@@ -107,7 +107,11 @@ export function IdeaBankFab() {
     [ideas]
   );
 
-  const isHiddenRoute = pathname?.startsWith("/login");
+  const isHiddenRoute =
+    pathname === "/" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/unauthorized";
   if (!isCreator || isHiddenRoute || isQueryFullscreen) {
     return null;
   }
