@@ -53,7 +53,7 @@ export function ContentHeader({
       {/* Left: Metadata & Navigation */}
       <div className="flex items-center gap-3">
         <Link
-          href="/index"
+          href="/tracker"
           className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
           style={{ borderRadius: "var(--radius)" }}
           title="Return to Index"

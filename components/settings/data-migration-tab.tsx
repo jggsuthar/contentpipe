@@ -999,7 +999,7 @@ export function DataMigrationTab() {
 
           <div className="flex items-center justify-center gap-3 pt-4">
             <Link
-              href={`/index?type=${selectedTypeId}`}
+              href={`/tracker?type=${selectedTypeId}`}
               className="px-5 py-2 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 flex items-center gap-2 transition-all cursor-pointer shadow-sm"
             >
               <span>Open Tracker Matrix</span>

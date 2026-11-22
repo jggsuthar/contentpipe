@@ -248,10 +248,10 @@ export default function ContentHubPage({
             </button>
 
             <Link
-              href="/index"
+              href="/tracker"
               className="inline-block text-xs text-muted-foreground hover:text-foreground font-mono transition-colors pt-1"
             >
-              ← Return to Dashboard
+              ← Return to Index
             </Link>
           </div>
         </div>
@@ -261,7 +261,7 @@ export default function ContentHubPage({
           <h2 className="font-bold text-sm">Failed to Load Content Hub</h2>
           <p className="text-xs text-muted-foreground">{error}</p>
           <button
-            onClick={() => router.push("/index")}
+            onClick={() => router.push("/tracker")}
             className="px-3 py-1.5 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             style={{ borderRadius: "var(--radius)" }}
           >

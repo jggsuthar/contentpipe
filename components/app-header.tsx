@@ -47,9 +47,9 @@ export function AppHeader() {
     },
     {
       label: "Index",
-      href: "/index",
+      href: "/tracker",
       icon: Table,
-      active: pathname.startsWith("/index") || pathname.startsWith("/tracker") || pathname.startsWith("/scripts") || pathname.startsWith("/content"),
+      active: pathname.startsWith("/tracker") || pathname.startsWith("/scripts") || pathname.startsWith("/content"),
     },
     {
       label: "Schedule",
@@ -249,7 +249,7 @@ export function AppHeader() {
                   </Link>
 
                   <Link
-                    href="/index"
+                    href="/tracker"
                     onClick={() => setDropdownOpen(false)}
                     className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl hover:bg-muted/60 text-foreground transition-colors duration-200"
                   >

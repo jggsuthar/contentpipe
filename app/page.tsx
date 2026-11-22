@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   Clapperboard,
   ShieldCheck,
@@ -17,17 +17,23 @@ import {
 } from "lucide-react";
 import { PublicShell } from "@/components/public/public-shell";
 
-function HomeContent() {
+export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isWelcomeCallback, setIsWelcomeCallback] = useState(false);
+  const [callbackUrlParam, setCallbackUrlParam] = useState<string | null>(null);
 
-  const authError = searchParams?.get("error");
-  const isWelcomeCallback = searchParams?.get("welcome") === "1";
-  const callbackUrlParam = searchParams?.get("callbackUrl");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setAuthError(params.get("error"));
+    setIsWelcomeCallback(params.get("welcome") === "1");
+    setCallbackUrlParam(params.get("callbackUrl"));
+  }, []);
 
   const isAuthenticated = status === "authenticated" && !!session?.user?.role;
   const dashboardHref =
@@ -207,19 +213,5 @@ function HomeContent() {
         </section>
       </div>
     </PublicShell>
-  );
-}
-
-export default function HomePage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center font-mono text-xs text-muted-foreground">
-          Loading ContentPipe...
-        </div>
-      }
-    >
-      <HomeContent />
-    </Suspense>
   );
 }

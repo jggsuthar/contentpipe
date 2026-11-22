@@ -43,7 +43,7 @@ export function PipelineHealthMatrix({ pipelines }: PipelineHealthMatrixProps) {
         </div>
 
         <Link
-          href="/index"
+          href="/tracker"
           className="px-3 py-1.5 rounded-xl glass-subtle text-xs font-mono text-primary hover:bg-primary/15 flex items-center gap-1 transition-all duration-250"
         >
           <span>Open Matrix Board</span>

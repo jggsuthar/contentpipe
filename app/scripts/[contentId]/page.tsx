@@ -542,7 +542,7 @@ export default function ScriptStudioPage({
           <h2 className="font-bold text-sm">Access Restricted</h2>
           <p className="text-xs text-muted-foreground">{error}</p>
           <button
-            onClick={() => router.push("/index")}
+            onClick={() => router.push("/tracker")}
             className="px-3 py-1.5 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
             style={{ borderRadius: "var(--radius)" }}
           >

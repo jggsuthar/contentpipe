@@ -240,7 +240,7 @@ export async function GET(req: NextRequest) {
                 brandColor: type.brand?.color || null,
                 taskName: task.task_name,
                 dueDate: dueDate.toISOString(),
-                targetUrl: `/index?${type.brand_id ? `brand=${type.brand_id}&` : ""}type=${type.id}`,
+                targetUrl: `/tracker?${type.brand_id ? `brand=${type.brand_id}&` : ""}type=${type.id}`,
               };
 
               if (dueDate.getTime() < today.getTime()) {

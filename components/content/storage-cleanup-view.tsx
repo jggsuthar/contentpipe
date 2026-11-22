@@ -132,7 +132,7 @@ export function StorageCleanupView({
       <div className="w-full max-w-7xl mx-auto flex items-center justify-between pb-4 border-b border-border">
         <div className="flex items-center gap-3">
           <Link
-            href="/index"
+            href="/tracker"
             className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all"
             style={{ borderRadius: "var(--radius)" }}
             title="Back to Index"

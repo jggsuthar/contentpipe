@@ -192,7 +192,7 @@ export function ScriptHeader({
         {/* Left: Navigation & Clean Meta */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <Link
-            href="/index"
+            href="/tracker"
             className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all cursor-pointer"
             style={{ borderRadius: "var(--radius)" }}
             title="Return to Main Board"

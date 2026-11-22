@@ -54,9 +54,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 4. Authenticated App Workspaces: '/index/*', '/tracker/*', '/scripts/*', '/content/*'
+  // 4. Authenticated App Workspaces: '/tracker/*', '/scripts/*', '/content/*'
   if (
-    pathname.startsWith("/index") ||
     pathname.startsWith("/tracker") ||
     pathname.startsWith("/scripts") ||
     pathname.startsWith("/content")
@@ -81,7 +80,6 @@ export const config = {
     "/creator/:path*",
     "/team/:path*",
     "/settings/:path*",
-    "/index/:path*",
     "/tracker/:path*",
     "/scripts/:path*",
     "/content/:path*",
