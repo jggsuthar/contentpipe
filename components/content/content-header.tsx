@@ -49,7 +49,7 @@ export function ContentHeader({
     : null;
 
   return (
-    <header className="w-full max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl card-theme">
+    <header className="w-full max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 p-3.5 sm:p-4 rounded-2xl card-theme">
       {/* Left: Metadata & Navigation */}
       <div className="flex items-center gap-3">
         <Link
@@ -116,15 +116,14 @@ export function ContentHeader({
       </div>
 
       {/* Right: Quick Tools & Google Drive Link */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
         {/* Direct Google Drive Folder Link */}
         {driveFolders.main_folder_url && (
           <a
             href={driveFolders.main_folder_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-            style={{ borderRadius: "var(--radius)" }}
+            className="col-span-2 sm:col-span-1 min-h-[38px] sm:min-h-0 px-3 py-1.5 rounded-xl sm:rounded-md text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
             title="Open project folder in Google Drive"
           >
             <FolderSync className="w-3.5 h-3.5" />
@@ -136,8 +135,7 @@ export function ContentHeader({
         {/* Link to Script */}
         <Link
           href={`/scripts/${contentItem.unique_content_id || contentItem.id}`}
-          className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 transition-all"
-          style={{ borderRadius: "var(--radius)" }}
+          className="min-h-[38px] sm:min-h-0 px-3 py-1.5 rounded-xl sm:rounded-md text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center justify-center gap-1.5 transition-all"
           title="Open Script Workspace"
         >
           <FileText className="w-3.5 h-3.5" />
@@ -148,12 +146,11 @@ export function ContentHeader({
         {isCreator && (
           <Link
             href="/storage-cleanup"
-            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 transition-all"
-            style={{ borderRadius: "var(--radius)" }}
+            className="min-h-[38px] sm:min-h-0 px-3 py-1.5 rounded-xl sm:rounded-md text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center justify-center gap-1.5 transition-all"
             title="Manage Google Drive Storage & Cleanup Old Footage"
           >
             <HardDrive className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Storage Cleanup</span>
+            <span>Storage Cleanup</span>
           </Link>
         )}
       </div>

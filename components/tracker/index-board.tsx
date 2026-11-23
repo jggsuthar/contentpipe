@@ -22,6 +22,8 @@ import {
   ChevronRight,
   AlertTriangle,
   X,
+  LayoutGrid,
+  Table as TableIcon,
 } from "lucide-react";
 import { TaskStatus } from "@/types/database";
 import {
@@ -171,6 +173,9 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
   // 6-Month Publish Calendar State
   const [calendarMode, setCalendarMode] = useState<"closed" | "docked" | "floating" | "minimized">("closed");
 
+  // Mobile Register View Mode (defaults to "cards" on < md)
+  const [mobileViewMode, setMobileViewMode] = useState<"cards" | "grid">("cards");
+
   // Modals for Custom Placeholder & Publish Dates Organizer
   const [isAddPlaceholderOpen, setIsAddPlaceholderOpen] = useState(false);
   const [addPlaceholderDate, setAddPlaceholderDate] = useState<string | undefined>(undefined);
@@ -205,7 +210,7 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
       el.removeEventListener("scroll", updateScrollMetrics);
       ro.disconnect();
     };
-  }, [loading, matrixRows, activeContentType]);
+  }, [loading, matrixRows, activeContentType, mobileViewMode]);
 
   // ---------------------------------------------------------------------------
   // Optimistic Queue + Temp-ID Resolution + Sync Status State (Ideas 1, 3, 4)
@@ -1162,30 +1167,30 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
   };
 
   return (
-    <div className="h-[calc(100dvh-65px)] flex flex-col w-full overflow-hidden">
+    <div className="min-h-[calc(100dvh-52px)] md:h-[calc(100dvh-65px)] flex flex-col w-full md:overflow-hidden pb-20 md:pb-0">
       {/* Consolidated Frosted Command Bar */}
-      <div className="shrink-0 mx-2 sm:mx-4 mt-2 sm:mt-3 mb-1.5 sm:mb-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl glass-nav border border-border shadow-sm flex flex-wrap items-center justify-between gap-2 sm:gap-3 relative z-30">
-        {/* Left: Title + Badge + Chained Brand -> Content Series Selector */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <h1 className="font-bold text-sm sm:text-base tracking-tight text-foreground">Tracker</h1>
-            <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase font-bold tracking-wider bg-primary/15 text-primary border border-primary/25">
+      <div className="shrink-0 mx-2 sm:mx-4 mt-2 sm:mt-3 mb-1.5 sm:mb-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl glass-nav border border-border shadow-sm flex flex-col md:flex-row md:flex-wrap md:items-center md:justify-between gap-2 sm:gap-3 relative z-30">
+        {/* Row 1 on Mobile / Left on Desktop: Title + Chained Brand -> Series Dropdowns + Mobile Active/Archive */}
+        <div className="flex items-center justify-between md:justify-start gap-2 sm:gap-3 min-w-0 w-full md:w-auto">
+          <div className="hidden md:flex items-center gap-2 shrink-0">
+            <h1 className="font-bold text-base tracking-tight text-foreground">Tracker</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase font-bold tracking-wider bg-primary/15 text-primary border border-primary/25">
               {currentView === "archive" ? "Archive Vault" : "Matrix Board"}
             </span>
             {isSwitchingSeries && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-muted text-muted-foreground">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                <span className="hidden sm:inline">Switching...</span>
+                <span>Switching...</span>
               </span>
             )}
           </div>
 
-          <div className="h-4 w-px bg-border hidden sm:block shrink-0" />
+          <div className="h-4 w-px bg-border hidden md:block shrink-0" />
 
           {/* Chained Brand -> Series Dropdowns */}
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 md:flex-initial">
             {/* Brand Dropdown */}
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 md:flex-initial">
               <span
                 className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/25"
                 style={{ backgroundColor: activeBrand?.color || "#6366f1" }}
@@ -1198,7 +1203,7 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
                 value={activeBrand?.id || ""}
                 onChange={(e) => handleBrandChange(e.target.value)}
                 aria-label="Select Brand"
-                className="h-8 px-2 sm:px-2.5 rounded-xl text-xs font-semibold font-mono glass-input cursor-pointer max-w-[125px] sm:max-w-[175px] truncate"
+                className="h-8 px-2 sm:px-2.5 rounded-xl text-xs font-semibold font-mono glass-input cursor-pointer w-full md:w-auto md:max-w-[175px] truncate"
               >
                 {brands.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -1211,8 +1216,8 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
             <span className="text-muted-foreground/50 text-xs font-mono hidden sm:inline">/</span>
 
             {/* Content Series Dropdown */}
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Layers className="w-3.5 h-3.5 text-primary shrink-0" />
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 md:flex-initial">
+              <Layers className="w-3.5 h-3.5 text-primary shrink-0 hidden sm:block" />
               <span className="hidden md:inline text-[11px] font-mono uppercase tracking-wider text-muted-foreground shrink-0">
                 Series:
               </span>
@@ -1221,7 +1226,7 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
                 onChange={(e) => handleSeriesChange(e.target.value)}
                 disabled={seriesForActiveBrand.length === 0}
                 aria-label="Select Content Series"
-                className="h-8 px-2 sm:px-2.5 rounded-xl text-xs font-semibold font-mono glass-input cursor-pointer max-w-[130px] sm:max-w-[195px] truncate disabled:opacity-60"
+                className="h-8 px-2 sm:px-2.5 rounded-xl text-xs font-semibold font-mono glass-input cursor-pointer w-full md:w-auto md:max-w-[195px] truncate disabled:opacity-60"
               >
                 {seriesForActiveBrand.length === 0 ? (
                   <option value="">No series</option>
@@ -1235,24 +1240,73 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
               </select>
             </div>
           </div>
+
+          {/* Mobile-only Compact Active / Archive Toggle in Row 1 */}
+          {(isCreator || indexPermissions?.archive !== "none") && (
+            <div className="flex md:hidden items-center p-0.5 rounded-xl glass-subtle text-[11px] font-mono gap-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCurrentView("active")}
+                className={`px-2 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  currentView === "active"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentView("archive")}
+                className={`px-2 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  currentView === "archive"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Archive
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Right Tools: Sync Status + View Toggle + Horizon Window Switcher + Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {pendingMutationsCount > 0 ? (
-            <span
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-mono font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/30"
-              title="Saving changes in order to cloud database"
+        {/* Row 2 on Mobile (single-line scrollable strip) / Right Tools on Desktop */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap overflow-x-auto no-scrollbar md:flex-wrap md:overflow-visible w-full md:w-auto">
+          {/* Mobile-only Cards | Grid View Switcher */}
+          <div className="flex md:hidden items-center p-0.5 rounded-xl glass-subtle text-[11px] font-mono gap-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobileViewMode("cards")}
+              className={`px-2 py-1 rounded-lg font-semibold transition-all flex items-center gap-1 cursor-pointer ${
+                mobileViewMode === "cards"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground"
+              }`}
+              aria-label="Mobile Cards View"
             >
+              <LayoutGrid className="w-3 h-3" />
+              <span>Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileViewMode("grid")}
+              className={`px-2 py-1 rounded-lg font-semibold transition-all flex items-center gap-1 cursor-pointer ${
+                mobileViewMode === "grid"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground"
+              }`}
+              aria-label="Mobile Grid View"
+            >
+              <TableIcon className="w-3 h-3" />
+              <span>Grid</span>
+            </button>
+          </div>
+
+          {isSwitchingSeries && (
+            <span className="md:hidden inline-flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] font-mono bg-muted text-muted-foreground shrink-0">
               <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Syncing ({pendingMutationsCount})</span>
             </span>
-          ) : showSavedBadge ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-mono font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 animate-in fade-in duration-150">
-              <CheckCircle2 className="w-3 h-3" />
-              <span>Saved</span>
-            </span>
-          ) : null}
+          )}
 
           {/* 6-Month Publish Calendar Icon Button */}
           <button
@@ -1266,7 +1320,7 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
                 setCalendarMode("closed");
               }
             }}
-            className={`p-2 rounded-xl transition-all duration-250 cursor-pointer flex items-center justify-center border ${
+            className={`p-2 rounded-xl transition-all duration-250 cursor-pointer flex items-center justify-center border shrink-0 ${
               calendarMode !== "closed"
                 ? "bg-primary text-primary-foreground border-primary shadow-xs"
                 : "glass-subtle text-muted-foreground hover:text-foreground"
@@ -1277,9 +1331,9 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
             <CalendarDays className="w-4 h-4" />
           </button>
 
-          {/* View Mode Toggle: Active vs Archive */}
+          {/* Desktop View Mode Toggle: Active vs Archive */}
           {(isCreator || indexPermissions?.archive !== "none") && (
-            <div className="flex items-center p-1 rounded-xl glass-subtle text-xs font-mono gap-0.5">
+            <div className="hidden md:flex items-center p-1 rounded-xl glass-subtle text-xs font-mono gap-0.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setCurrentView("active")}
@@ -1308,7 +1362,7 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
           )}
 
           {/* Horizon Switcher (1M - 6M) */}
-          <div className="flex items-center gap-0.5 p-1 rounded-xl glass-subtle text-xs font-mono">
+          <div className="flex items-center gap-0.5 p-1 rounded-xl glass-subtle text-xs font-mono shrink-0">
             <Calendar className="w-3 h-3 text-muted-foreground ml-1.5 mr-1" />
             {[1, 2, 3, 4, 5, 6].map((m) => (
               <button
@@ -1333,7 +1387,7 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
                 setAddPlaceholderDate(undefined);
                 setIsAddPlaceholderOpen(true);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold glass-subtle text-foreground hover:border-primary/40 flex items-center gap-1.5 transition-all duration-250 cursor-pointer shadow-xs"
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold glass-subtle text-foreground hover:border-primary/40 flex items-center gap-1.5 transition-all duration-250 cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
               title="Add a custom placeholder on a custom publish date"
             >
               <PlusCircle className="w-3.5 h-3.5 text-primary" />
@@ -1346,13 +1400,29 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
             <button
               type="button"
               onClick={() => setIsOrganizerOpen(true)}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary/15 text-primary hover:bg-primary/25 border border-primary/25 flex items-center gap-1.5 transition-all duration-250 cursor-pointer shadow-xs"
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary/15 text-primary hover:bg-primary/25 border border-primary/25 flex items-center gap-1.5 transition-all duration-250 cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
               title="Reorganize upcoming placeholders according to current cadence schedule"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Organize Dates</span>
             </button>
           )}
+
+          {/* Live Syncing / Saved Pill */}
+          {pendingMutationsCount > 0 ? (
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-mono font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/30 shrink-0 whitespace-nowrap"
+              title="Saving changes in order to cloud database"
+            >
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Syncing ({pendingMutationsCount})</span>
+            </span>
+          ) : showSavedBadge ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-mono font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 animate-in fade-in duration-150 shrink-0 whitespace-nowrap">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Saved</span>
+            </span>
+          ) : null}
         </div>
 
         {/* 6-Month Publish Calendar: Docked or Floating View */}
@@ -1391,9 +1461,9 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
       )}
 
       {/* Main Board Body (Single Scroller) */}
-      <main ref={mainRef} className="flex-1 min-h-0 overflow-auto w-full px-2 sm:px-4 pb-14 sm:pb-4 relative">
+      <main ref={mainRef} className="flex-1 min-h-0 overflow-x-auto md:overflow-auto w-full px-2 sm:px-4 pb-4 relative">
         {loading ? (
-          <div className="h-full flex flex-col items-center justify-center gap-3">
+          <div className="h-full flex flex-col items-center justify-center gap-3 py-16 md:py-0">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
             <span className="font-mono text-xs text-muted-foreground">
               Calculating dual target dates and loading matrix...
@@ -1405,6 +1475,7 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
             workflowTasks={activeContentType.workflow_tasks || []}
             miscTasks={activeContentType.misc_tasks || []}
             contentTypeId={activeContentType.id}
+            mobileViewMode={mobileViewMode}
             isCreator={isCreator}
             canInputIdeation={canInputIdeation}
             canChangePublish={canChangePublish}
@@ -1421,15 +1492,15 @@ function IndexContent({ brandParam = null, seriesParam = null }: IndexBoardProps
             onChangePublishDate={(row) => setChangingPublishDateRow(row)}
           />
         ) : (
-          <div className="h-full flex items-center justify-center text-xs text-muted-foreground px-4 text-center">
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground px-4 text-center py-16 md:py-0">
             No active Content Series found{activeBrand ? ` for ${activeBrand.name}` : ""}. Please visit Settings to create a Content Series.
           </div>
         )}
       </main>
 
-      {/* Floating Horizontal Scroller for Narrow Screens */}
+      {/* Floating Horizontal Scroller for Narrow Desktop/Tablet Screens */}
       {hScroll.hasOverflow && (
-        <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full glass-floating border border-border shadow-xl w-[min(92vw,340px)]">
+        <div className="hidden md:flex fixed bottom-3 left-1/2 -translate-x-1/2 z-40 items-center gap-2 px-3 py-1.5 rounded-full glass-floating border border-border shadow-xl w-[min(92vw,340px)]">
           <button
             type="button"
             onClick={() => mainRef.current?.scrollBy({ left: -200, behavior: "smooth" })}

@@ -14,6 +14,7 @@ import {
   AlignLeft,
   AlignCenter,
   ScanLine,
+  SlidersHorizontal,
 } from "lucide-react";
 import { ScriptRowData, ScriptColumnSchema } from "@/types/database";
 import {
@@ -77,6 +78,7 @@ export function TeleprompterView({
   const [readerWidth, setReaderWidth] = useState<PrompterWidth>("medium");
   const [showGuide, setShowGuide] = useState(true);
   const [hudHidden, setHudHidden] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
 
   // Identify dynamic dialogue & roll columns
@@ -106,6 +108,14 @@ export function TeleprompterView({
     if (!el) return;
     const maxScroll = Math.max(1, el.scrollHeight - el.clientHeight);
     setScrollProgress(Math.min(100, Math.max(0, Math.round((el.scrollTop / maxScroll) * 100))));
+  }, []);
+
+  // Notify global AppHeader when teleprompter overlay is active so mobile bottom nav hides
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("contentpipe:teleprompter", { detail: { active: true } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent("contentpipe:teleprompter", { detail: { active: false } }));
+    };
   }, []);
 
   // Delta-time smooth sub-pixel auto-scroll loop
@@ -300,9 +310,73 @@ export function TeleprompterView({
         </div>
       )}
 
-      {/* Top Floating HUD Control Bar */}
+      {/* Mobile Portrait Slim Top Bar (< md) */}
       {!hudHidden && (
-        <div className="w-full max-w-6xl mx-auto px-3 pt-3 pb-1 z-20 shrink-0">
+        <div className="md:hidden w-full px-2.5 pt-2.5 pb-1 z-20 shrink-0">
+          <div
+            className={`border backdrop-blur-xl rounded-2xl px-2.5 py-2 flex items-center justify-between gap-2 text-xs font-mono ${palette.hud}`}
+          >
+            <button
+              type="button"
+              onClick={onExit}
+              className={`min-h-[36px] px-2.5 py-1 rounded-xl border font-semibold flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${palette.btn}`}
+              title="Exit Teleprompter (Esc)"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Exit</span>
+            </button>
+
+            <span className="font-bold text-xs truncate flex-1 min-w-0 text-center">
+              {videoTitle}
+            </span>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {notesHasText && (
+                <div className={`flex items-center p-0.5 rounded-xl border ${palette.pillTrack}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewSource("notes");
+                      setTextAlign("left");
+                    }}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
+                      viewSource === "notes" ? palette.btnActive : palette.muted
+                    }`}
+                  >
+                    Notes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewSource("table")}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
+                      viewSource === "table" ? palette.btnActive : palette.muted
+                    }`}
+                  >
+                    Table
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMoreOpen(false);
+                  setHudHidden(true);
+                }}
+                className={`min-h-[36px] min-w-[36px] p-1.5 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${palette.btn}`}
+                title="Hide controls (H)"
+                aria-label="Hide HUD"
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Top Floating HUD Control Bar (md+) */}
+      {!hudHidden && (
+        <div className="hidden md:block w-full max-w-6xl mx-auto px-3 pt-3 pb-1 z-20 shrink-0">
           <div
             className={`border backdrop-blur-xl rounded-2xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono ${palette.hud}`}
           >
@@ -601,6 +675,164 @@ export function TeleprompterView({
           </div>
         </div>
       </div>
+
+      {/* Mobile Floating Bottom Thumb Dock (< md) */}
+      {!hudHidden && (
+        <div className="md:hidden fixed bottom-4 inset-x-3 z-30 pb-[env(safe-area-inset-bottom)] font-mono text-xs">
+          {/* Expandable Settings Popover */}
+          {mobileMoreOpen && (
+            <div
+              className={`mb-2 rounded-2xl border p-3 backdrop-blur-xl shadow-2xl space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-150 ${palette.hud}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className={`text-[11px] ${palette.muted}`}>Width</span>
+                <div className={`flex items-center p-0.5 rounded-xl border ${palette.pillTrack}`}>
+                  {(["narrow", "medium", "wide"] as PrompterWidth[]).map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => setReaderWidth(w)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        readerWidth === w ? palette.btnActive : palette.muted
+                      }`}
+                    >
+                      {w === "narrow" ? "S" : w === "medium" ? "M" : "L"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setTextAlign((a) => (a === "center" ? "left" : "center"))}
+                  className={`min-h-[38px] px-2 rounded-xl border flex flex-col items-center justify-center gap-0.5 text-[10px] cursor-pointer ${palette.btn}`}
+                >
+                  {textAlign === "center" ? (
+                    <AlignCenter className="w-3.5 h-3.5" />
+                  ) : (
+                    <AlignLeft className="w-3.5 h-3.5" />
+                  )}
+                  <span>{textAlign === "center" ? "Center" : "Left"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowGuide((g) => !g)}
+                  className={`min-h-[38px] px-2 rounded-xl border flex flex-col items-center justify-center gap-0.5 text-[10px] cursor-pointer ${
+                    showGuide ? palette.btnActive : palette.btn
+                  }`}
+                >
+                  <ScanLine className="w-3.5 h-3.5" />
+                  <span>Guide</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsMirrored((m) => !m)}
+                  className={`min-h-[38px] px-2 rounded-xl border flex flex-col items-center justify-center gap-0.5 text-[10px] cursor-pointer ${
+                    isMirrored ? palette.btnActive : palette.btn
+                  }`}
+                >
+                  <FlipHorizontal className="w-3.5 h-3.5" />
+                  <span>Mirror</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSurfaceOverride(isDarkSurface ? "bright" : "dark")}
+                  className={`min-h-[38px] px-2 rounded-xl border flex flex-col items-center justify-center gap-0.5 text-[10px] cursor-pointer ${palette.btn}`}
+                >
+                  {isDarkSurface ? (
+                    <Sun className="w-3.5 h-3.5" />
+                  ) : (
+                    <Moon className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isDarkSurface ? "Day" : "Dark"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Main Thumb Dock Bar */}
+          <div
+            className={`border backdrop-blur-xl rounded-2xl px-2 py-2 shadow-2xl flex items-center justify-between gap-1.5 ${palette.hud}`}
+          >
+            <button
+              type="button"
+              onClick={handleReset}
+              className={`min-w-[38px] min-h-[38px] rounded-xl border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${palette.btn}`}
+              title="Reset to top"
+              aria-label="Reset scroll"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsPlaying((p) => !p)}
+              className={`min-h-[38px] px-3 rounded-xl font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm shrink-0 ${
+                isPlaying
+                  ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
+                  : "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
+              }`}
+            >
+              {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              <span>{isPlaying ? "Pause" : "Play"}</span>
+            </button>
+
+            {/* Speed Slider */}
+            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border flex-1 min-w-0 ${palette.pillTrack}`}>
+              <input
+                type="range"
+                min="0.5"
+                max="8"
+                step="0.5"
+                value={scrollSpeed}
+                onChange={(e) => setScrollSpeed(parseFloat(e.target.value))}
+                aria-label="Scroll speed"
+                className="w-full min-w-[44px] accent-emerald-500 cursor-pointer"
+              />
+              <span className={`font-bold text-[11px] shrink-0 ${palette.accent}`}>
+                {scrollSpeed}x
+              </span>
+            </div>
+
+            {/* Font Size A- / A+ */}
+            <div className={`flex items-center gap-0.5 px-1 py-0.5 rounded-xl border shrink-0 ${palette.pillTrack}`}>
+              <button
+                type="button"
+                onClick={() => setFontSize((s) => Math.max(20, s - 4))}
+                className="min-w-[28px] min-h-[34px] rounded-lg hover:opacity-75 cursor-pointer font-bold text-[11px]"
+                title="Decrease font size"
+              >
+                A-
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontSize((s) => Math.min(64, s + 4))}
+                className="min-w-[28px] min-h-[34px] rounded-lg hover:opacity-75 cursor-pointer font-bold text-[11px]"
+                title="Increase font size"
+              >
+                A+
+              </button>
+            </div>
+
+            {/* Settings Popover Toggle */}
+            <button
+              type="button"
+              onClick={() => setMobileMoreOpen((o) => !o)}
+              className={`min-w-[38px] min-h-[38px] rounded-xl border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+                mobileMoreOpen ? palette.btnActive : palette.btn
+              }`}
+              title="Teleprompter display settings"
+              aria-label="More teleprompter settings"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

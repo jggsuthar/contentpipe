@@ -155,8 +155,14 @@ export function PublishDatesOrganizerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-xl glass-floating rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-[99999] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !applying) onClose();
+      }}
+    >
+      <div className="w-full sm:max-w-xl glass-floating mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90dvh]">
+        <div className="sm:hidden mobile-sheet-handle mt-2.5 mb-0.5" />
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/40 gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -377,7 +383,7 @@ export function PublishDatesOrganizerModal({
                   type="date"
                   value={manualAnchorDate}
                   onChange={(e) => setManualAnchorDate(e.target.value)}
-                  className="w-full h-8 px-2.5 rounded bg-background border border-border text-foreground font-mono text-xs focus:outline-none focus:border-primary"
+                  className="w-full h-10 sm:h-8 px-2.5 rounded-xl bg-background border border-border text-foreground font-mono text-base sm:text-xs focus:outline-none focus:border-primary"
                 />
               </div>
             )}

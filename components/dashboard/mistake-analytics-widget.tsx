@@ -42,14 +42,14 @@ export function MistakeAnalyticsWidget({
   };
 
   return (
-    <div className="card-theme p-6 rounded-2xl space-y-5">
+    <div className="card-theme p-4 sm:p-6 rounded-2xl space-y-4 sm:space-y-5">
       {/* Header & Filter Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/70">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center font-bold border border-primary/25">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center font-bold border border-primary/25 shrink-0">
             <BarChart3 className="w-4 h-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-bold text-sm">Quality Control</h3>
               {activeBrand && (
@@ -69,9 +69,9 @@ export function MistakeAnalyticsWidget({
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-2 text-xs font-mono">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono w-full sm:w-auto">
           {/* Timeframe Toggle */}
-          <div className="flex items-center p-1 rounded-full glass-subtle gap-0.5">
+          <div className="flex items-center p-1 rounded-full glass-subtle gap-0.5 shrink-0">
             <button
               type="button"
               onClick={() => onChangeTimeframe("30d")}
@@ -100,7 +100,7 @@ export function MistakeAnalyticsWidget({
           <select
             value={memberFilter}
             onChange={(e) => onChangeMember(e.target.value)}
-            className="h-8 px-3 text-[11px] rounded-full glass-input cursor-pointer font-mono"
+            className="h-8 px-2.5 sm:px-3 text-[11px] rounded-full glass-input cursor-pointer font-mono flex-1 sm:flex-initial min-w-0 max-w-full"
           >
             <option value="all">All Specialists</option>
             {analytics.teamMembers.map((m) => (
@@ -113,45 +113,51 @@ export function MistakeAnalyticsWidget({
       </div>
 
       {/* High-Level Metric Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3.5">
         {/* Metric 1: First-Pass Acceptance Rate */}
-        <div className="p-4 rounded-xl glass-subtle flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-mono text-muted-foreground">First-Pass Approval</span>
-            <div className="text-xl font-bold font-mono text-emerald-400 mt-0.5">
+        <div className="p-2.5 sm:p-4 rounded-xl glass-subtle flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-[10px] sm:text-[11px] font-mono text-muted-foreground leading-tight block">
+              First-Pass Approval
+            </span>
+            <div className="text-lg sm:text-xl font-bold font-mono text-emerald-400 mt-0.5">
               {analytics.firstPassRate}%
             </div>
-            <p className="text-[10px] text-muted-foreground">Approved at V1 without rework</p>
+            <p className="hidden sm:block text-[10px] text-muted-foreground">Approved at V1 without rework</p>
           </div>
-          <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400">
+          <div className="hidden sm:flex p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 shrink-0">
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
 
         {/* Metric 2: Avg Iterations */}
-        <div className="p-4 rounded-xl glass-subtle flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-mono text-muted-foreground">Avg Iterations / Video</span>
-            <div className="text-xl font-bold font-mono text-primary mt-0.5">
+        <div className="p-2.5 sm:p-4 rounded-xl glass-subtle flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-[10px] sm:text-[11px] font-mono text-muted-foreground leading-tight block">
+              Avg Iterations
+            </span>
+            <div className="text-lg sm:text-xl font-bold font-mono text-primary mt-0.5">
               {analytics.avgIterations}
             </div>
-            <p className="text-[10px] text-muted-foreground">Cuts required until final signoff</p>
+            <p className="hidden sm:block text-[10px] text-muted-foreground">Cuts required until final signoff</p>
           </div>
-          <div className="p-2.5 rounded-xl bg-primary/15 text-primary">
+          <div className="hidden sm:flex p-2.5 rounded-xl bg-primary/15 text-primary shrink-0">
             <RefreshCw className="w-5 h-5" />
           </div>
         </div>
 
         {/* Metric 3: Total Mistake Points */}
-        <div className="p-4 rounded-xl glass-subtle flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-mono text-muted-foreground">Total Feedback Tags</span>
-            <div className="text-xl font-bold font-mono text-foreground mt-0.5">
+        <div className="p-2.5 sm:p-4 rounded-xl glass-subtle flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-[10px] sm:text-[11px] font-mono text-muted-foreground leading-tight block">
+              Feedback Tags
+            </span>
+            <div className="text-lg sm:text-xl font-bold font-mono text-foreground mt-0.5">
               {analytics.totalMistakes}
             </div>
-            <p className="text-[10px] text-muted-foreground">Categorized review notes recorded</p>
+            <p className="hidden sm:block text-[10px] text-muted-foreground">Categorized review notes recorded</p>
           </div>
-          <div className="p-2.5 rounded-xl glass-subtle text-muted-foreground">
+          <div className="hidden sm:flex p-2.5 rounded-xl glass-subtle text-muted-foreground shrink-0">
             <ShieldAlert className="w-5 h-5" />
           </div>
         </div>

@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, GitCommitHorizontal, ChevronRight, Calendar } from "lucide-react";
+import { ArrowRight, GitCommitHorizontal, ChevronRight, ChevronDown, Calendar } from "lucide-react";
 
 export interface SeriesStageBucket {
   taskName: string;
@@ -52,27 +52,54 @@ function formatSlotDate(iso: string): string {
 }
 
 export function LiveAssemblyLine({ pipelines }: LiveAssemblyLineProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   if (!pipelines || pipelines.length === 0) {
     return null;
   }
 
+  const totalActive = pipelines.reduce((sum, s) => sum + s.activeCount, 0);
+  const totalDelayed = pipelines.reduce((sum, s) => sum + s.delayedCount, 0);
+
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <GitCommitHorizontal className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold tracking-tight">Live Assembly Line</h2>
-          <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        aria-expanded={isExpanded}
+        className="w-full card-theme px-4 py-3 rounded-2xl flex items-center justify-between gap-2 text-left hover:border-primary/45 transition-all cursor-pointer"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <GitCommitHorizontal className="w-4 h-4 text-primary shrink-0" />
+          <h2 className="text-sm font-bold tracking-tight">Production Line</h2>
+          <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline truncate">
             • Where active videos sit right now per series
           </span>
         </div>
-      </div>
 
+        <div className="flex items-center gap-2 shrink-0 text-[11px] font-mono">
+          <span className="px-2 py-0.5 rounded-full glass-subtle text-muted-foreground">
+            {pipelines.length} {pipelines.length === 1 ? "series" : "series"} • {totalActive} active
+          </span>
+          {totalDelayed > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30 font-semibold">
+              {totalDelayed} late
+            </span>
+          )}
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
+        </div>
+      </button>
+
+      {isExpanded && (
       <div className="grid grid-cols-1 gap-3.5">
         {pipelines.map((series) => (
           <div
             key={series.id}
-            className="card-theme p-4 sm:p-5 rounded-2xl space-y-3.5"
+            className="card-theme p-3.5 sm:p-5 rounded-2xl space-y-3 sm:space-y-3.5"
           >
             {/* Series Header */}
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -112,7 +139,7 @@ export function LiveAssemblyLine({ pipelines }: LiveAssemblyLineProps) {
             </div>
 
             {/* Horizontal Stage Funnel (Exact Active Stage Counts) */}
-            <div className="flex items-stretch gap-1.5 overflow-x-auto pb-1">
+            <div className="flex items-stretch gap-1.5 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar">
               {series.stages.map((stage, idx) => {
                 const hasDelayed = stage.delayedCount > 0;
                 const hasNear = stage.nearCount > 0;
@@ -122,7 +149,7 @@ export function LiveAssemblyLine({ pipelines }: LiveAssemblyLineProps) {
                   <React.Fragment key={stage.taskName}>
                     <Link
                       href={series.indexUrl}
-                      className={`min-w-[108px] flex-1 p-2.5 rounded-xl border transition-all flex flex-col justify-between gap-1.5 ${
+                      className={`min-w-[96px] p-2 md:min-w-[108px] md:p-2.5 flex-1 snap-start rounded-xl border transition-all flex flex-col justify-between gap-1.5 ${
                         hasDelayed
                           ? "bg-red-500/10 border-red-500/35 hover:border-red-500/60"
                           : hasNear
@@ -195,7 +222,7 @@ export function LiveAssemblyLine({ pipelines }: LiveAssemblyLineProps) {
 
             {/* Compact Upcoming Cadence Slots Strip */}
             {series.upcomingSlots.length > 0 && (
-              <div className="flex items-center gap-2 pt-2 border-t border-border/50 overflow-x-auto">
+              <div className="flex items-center gap-2 pt-2 border-t border-border/50 overflow-x-auto no-scrollbar">
                 <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground shrink-0">
                   <Calendar className="w-3 h-3" />
                   <span>Next Slots:</span>
@@ -241,6 +268,7 @@ export function LiveAssemblyLine({ pipelines }: LiveAssemblyLineProps) {
           </div>
         ))}
       </div>
+      )}
     </section>
   );
 }

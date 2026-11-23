@@ -214,7 +214,7 @@ export default function ContentHubPage({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between p-4 md:p-8">
+    <div className="min-h-screen flex flex-col justify-between px-3 py-3 pb-24 md:p-8">
       {loading ? (
         <div className="card-theme p-16 text-center my-auto flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -278,12 +278,12 @@ export default function ContentHubPage({
           />
 
           {/* Main Body */}
-          <main className="w-full max-w-7xl mx-auto my-6 flex-1 space-y-6">
+          <main className="w-full max-w-7xl mx-auto my-4 md:my-6 flex-1 space-y-5 md:space-y-6">
             {/* Section 1: Raw Footage & B-Roll Assets */}
             <section className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Section 1: Production Assets & Camera Footage (SPEC.md Section 6.2)
+                  Section 1: Production Assets &amp; Camera Footage
                 </span>
               </div>
               <RawFootageSection
@@ -306,7 +306,7 @@ export default function ContentHubPage({
               <section className="space-y-2 pt-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                    Section 2: Iteration Review & Categorized Comments (SPEC.md Section 6.3)
+                    Section 2: Iteration Review &amp; Categorized Comments
                   </span>
                 </div>
                 <VideoReviewPlayer
@@ -339,8 +339,8 @@ export default function ContentHubPage({
           />
 
           {/* Footer */}
-          <footer className="w-full text-center text-xs text-muted-foreground py-4 font-mono border-t border-border max-w-7xl mx-auto">
-            ContentPipe • Content Hub, Google Drive Automation & Review (SPEC.md Section 6)
+          <footer className="hidden md:block w-full text-center text-xs text-muted-foreground py-4 font-mono border-t border-border max-w-7xl mx-auto">
+            ContentPipe • Content Hub, Google Drive Automation &amp; Review
           </footer>
         </>
       )}

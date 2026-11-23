@@ -189,88 +189,112 @@ export function ScriptHeader({
   return (
     <>
       <header className="w-full flex flex-col md:flex-row md:items-center justify-between gap-2 px-2.5 py-2 sm:px-4 sm:py-2.5 glass-nav select-none sticky top-0 z-30">
-        {/* Left: Navigation & Clean Meta */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Link
-            href="/tracker"
-            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all cursor-pointer"
-            style={{ borderRadius: "var(--radius)" }}
-            title="Return to Main Board"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-          </Link>
+        {/* Row 1 on Mobile / Left on Desktop: Back + Title + Status + Save */}
+        <div className="flex flex-col md:flex-row md:items-center gap-1.5 md:gap-2.5 min-w-0 w-full md:w-auto">
+          <div className="flex items-center gap-2 min-w-0 w-full md:w-auto">
+            <Link
+              href="/tracker"
+              className="p-1.5 md:p-1 rounded-lg md:rounded-md hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-all cursor-pointer shrink-0"
+              style={{ borderRadius: "var(--radius)" }}
+              title="Return to Main Board"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </Link>
 
-          <span className="font-bold text-sm tracking-tight truncate max-w-xs md:max-w-md">
-            {contentItem.title}
-          </span>
-
-          {/* Crisp Breadcrumb Badge: Brand Name / Content Series / Unique ID */}
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-muted/80 text-muted-foreground border border-border max-w-full truncate">
-            {contentItem.content_type?.brand?.name && (
-              <>
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: contentItem.content_type.brand.color || "#6366f1" }}
-                />
-                <span className="text-foreground/85 font-semibold truncate">
-                  {contentItem.content_type.brand.name}
-                </span>
-                <span className="opacity-50">/</span>
-              </>
-            )}
-            <span className="truncate">
-              {contentItem.content_type?.name || "Idea Bank (Unassigned Pipe)"}
+            <span className="font-bold text-sm tracking-tight truncate flex-1 md:flex-initial md:max-w-md min-w-0">
+              {contentItem.title}
             </span>
-            {contentItem.unique_content_id && (
-              <>
-                <span className="opacity-50">/</span>
-                <span className="font-bold text-primary shrink-0">
-                  {contentItem.unique_content_id}
-                </span>
-              </>
-            )}
-          </span>
 
-          {contentItem.is_in_idea_bank && (
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-              Idea Bank
+            {/* Desktop Breadcrumb Badge: Brand Name / Content Series / Unique ID */}
+            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-muted/80 text-muted-foreground border border-border max-w-full truncate">
+              {contentItem.content_type?.brand?.name && (
+                <>
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: contentItem.content_type.brand.color || "#6366f1" }}
+                  />
+                  <span className="text-foreground/85 font-semibold truncate">
+                    {contentItem.content_type.brand.name}
+                  </span>
+                  <span className="opacity-50">/</span>
+                </>
+              )}
+              <span className="truncate">
+                {contentItem.content_type?.name || "Idea Bank (Unassigned Pipe)"}
+              </span>
+              {contentItem.unique_content_id && (
+                <>
+                  <span className="opacity-50">/</span>
+                  <span className="font-bold text-primary shrink-0">
+                    {contentItem.unique_content_id}
+                  </span>
+                </>
+              )}
             </span>
-          )}
 
-          {/* Status Badge */}
-          {getStatusBadge()}
+            {contentItem.is_in_idea_bank && (
+              <span className="hidden md:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                Idea Bank
+              </span>
+            )}
 
-          {/* Auto-save Status Indicator */}
-          <div className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground ml-1">
-            {saveStatus === "saving" && (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                <span className="text-[10px]">Saving...</span>
-              </>
-            )}
-            {saveStatus === "saved" && (
-              <>
-                <Check className="w-3 h-3 text-emerald-400" />
-                <span className="text-[10px]">Saved</span>
-              </>
-            )}
-            {saveStatus === "unsaved" && (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                <span className="text-[10px] text-amber-400">Unsaved</span>
-              </>
+            {/* Status Badge */}
+            <div className="shrink-0">{getStatusBadge()}</div>
+
+            {/* Auto-save Status Indicator */}
+            <div className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground shrink-0">
+              {saveStatus === "saving" && (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                  <span className="hidden sm:inline text-[10px]">Saving...</span>
+                </>
+              )}
+              {saveStatus === "saved" && (
+                <>
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  <span className="hidden sm:inline text-[10px]">Saved</span>
+                </>
+              )}
+              {saveStatus === "unsaved" && (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="hidden sm:inline text-[10px] text-amber-400">Unsaved</span>
+                </>
+              )}
+            </div>
+
+            {isResponsibilityAssigned && assignedWriterRole && (
+              <span className="hidden md:inline text-[10px] font-mono text-muted-foreground">
+                • Writer: <strong className="text-foreground">{assignedWriterRole.name}</strong>
+              </span>
             )}
           </div>
 
-          {isResponsibilityAssigned && assignedWriterRole && (
-            <span className="text-[10px] font-mono text-muted-foreground">
-              • Writer: <strong className="text-foreground">{assignedWriterRole.name}</strong>
+          {/* Mobile Compact Sub-line for ID / Brand / Series */}
+          <div className="flex md:hidden items-center gap-1.5 text-[10px] font-mono text-muted-foreground pl-8 truncate">
+            {contentItem.unique_content_id && (
+              <span className="px-1.5 py-0.2 rounded bg-primary/15 text-primary font-bold shrink-0">
+                {contentItem.unique_content_id}
+              </span>
+            )}
+            {contentItem.content_type?.brand?.name && (
+              <span className="inline-flex items-center gap-1 truncate">
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: contentItem.content_type.brand.color || "#6366f1" }}
+                />
+                <span className="truncate">{contentItem.content_type.brand.name}</span>
+                <span>•</span>
+              </span>
+            )}
+            <span className="truncate">
+              {contentItem.content_type?.name || "Idea Bank"}
             </span>
-          )}
+          </div>
         </div>
 
-        {/* Right: Actions & Scenario Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Row 2 on Mobile (single-row swipeable or compact) / Right on Desktop: Actions & Scenario Buttons */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap overflow-x-auto no-scrollbar md:flex-wrap md:overflow-visible w-full md:w-auto">
           {/* Workspace Stacking Toggle: Vertical vs Horizontal Side-by-Side (PC / Desktop only) */}
           {onToggleLayout && (
             <button
@@ -301,12 +325,11 @@ export function ScriptHeader({
           <button
             type="button"
             onClick={onToggleTeleprompter}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+            className={`min-h-[38px] md:min-h-0 px-3 py-1.5 rounded-xl md:rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 ${
               isTeleprompter
                 ? "bg-primary text-primary-foreground border-primary shadow-xs"
                 : "bg-muted/70 hover:bg-muted text-foreground border-border"
             }`}
-            style={{ borderRadius: "var(--radius)" }}
             title="Open full-screen Teleprompter"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -317,32 +340,33 @@ export function ScriptHeader({
           <button
             type="button"
             onClick={handleExportClick}
-            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted/70 hover:bg-muted text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer"
-            style={{ borderRadius: "var(--radius)" }}
+            className="min-h-[38px] md:min-h-0 px-2.5 sm:px-3 py-1.5 rounded-xl md:rounded-md text-xs font-semibold bg-muted/70 hover:bg-muted text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
             title="Copy script dialogue to clipboard"
+            aria-label="Copy script dialogue"
           >
             {copied ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Copied!</span>
+                <span className="hidden sm:inline">Copied!</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                <span>Copy Script</span>
+                <span className="hidden sm:inline">Copy Script</span>
               </>
             )}
           </button>
 
           {/* Global Session Undo / Redo */}
           {canEdit && (onUndo || onRedo) && (
-            <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-md border border-border">
+            <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-xl md:rounded-md border border-border shrink-0 min-h-[38px] md:min-h-0">
               <button
                 type="button"
                 disabled={!canUndo}
                 onClick={onUndo}
-                className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                className="p-2 md:p-1.5 rounded-lg md:rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                 title="Undo (Ctrl+Z)"
+                aria-label="Undo"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -350,8 +374,9 @@ export function ScriptHeader({
                 type="button"
                 disabled={!canRedo}
                 onClick={onRedo}
-                className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                className="p-2 md:p-1.5 rounded-lg md:rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                 title="Redo (Ctrl+Y)"
+                aria-label="Redo"
               >
                 <RotateCcw className="w-3.5 h-3.5 -scale-x-100" />
               </button>
@@ -364,16 +389,16 @@ export function ScriptHeader({
               type="button"
               disabled={saveStatus === "saving" || isSubmitting}
               onClick={onManualSave}
-              className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted/70 hover:bg-muted text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer"
-              style={{ borderRadius: "var(--radius)" }}
+              className="min-h-[38px] md:min-h-0 px-2.5 sm:px-3 py-1.5 rounded-xl md:rounded-md text-xs font-semibold bg-muted/70 hover:bg-muted text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
               title="Save current script as draft"
+              aria-label="Save as Draft"
             >
               {saveStatus === "saving" ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <Save className="w-3.5 h-3.5" />
               )}
-              <span>Save as Draft</span>
+              <span className="hidden sm:inline">Save as Draft</span>
             </button>
           )}
 
@@ -381,14 +406,13 @@ export function ScriptHeader({
           {/* SCENARIO A: Responsibility NOT Assigned (Creator Solo Workflow) */}
           {/* ============================================================== */}
           {!isResponsibilityAssigned && isCreator && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               {scriptStatus !== "done" ? (
                 <button
                   type="button"
                   disabled={isSubmitting}
                   onClick={handleDeclareDone}
-                  className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="min-h-[38px] md:min-h-0 px-3.5 py-1.5 rounded-xl md:rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs whitespace-nowrap"
                   title="Declare this script completed"
                 >
                   {isSubmitting ? (
@@ -403,8 +427,7 @@ export function ScriptHeader({
                   type="button"
                   disabled={isSubmitting}
                   onClick={handleUndeclare}
-                  className="px-3 py-1.5 rounded-md text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="min-h-[38px] md:min-h-0 px-3 py-1.5 rounded-xl md:rounded-md text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
                   title="Revert back to Pending / Draft"
                 >
                   {isSubmitting ? (
@@ -422,19 +445,18 @@ export function ScriptHeader({
           {/* SCENARIO B: Responsibility IS Assigned (Writer + Creator Workflow) */}
           {/* ============================================================== */}
           {isResponsibilityAssigned && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               {/* Writer Actions: Submit for Review / Resubmit */}
               {canSubmit && !isCreator && (
                 <button
                   type="button"
                   disabled={isSubmitting || scriptStatus === "submitted"}
                   onClick={handleSubmit}
-                  className={`px-3.5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs ${
+                  className={`min-h-[38px] md:min-h-0 px-3.5 py-1.5 rounded-xl md:rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs whitespace-nowrap ${
                     scriptStatus === "submitted"
                       ? "bg-blue-500/20 text-blue-400 border border-blue-500/30 cursor-default"
                       : "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
                   }`}
-                  style={{ borderRadius: "var(--radius)" }}
                 >
                   {isSubmitting ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -453,15 +475,14 @@ export function ScriptHeader({
 
               {/* Creator Actions: Approve and Request Revision */}
               {isCreator && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   {/* Request Revision button: available if submitted or already approved */}
                   {(scriptStatus === "submitted" || scriptStatus === "done") && (
                     <button
                       type="button"
                       disabled={isSubmitting}
                       onClick={() => setRevisionModalOpen(true)}
-                      className="px-2.5 py-1.5 rounded-md text-xs font-semibold bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 border border-rose-500/30 flex items-center gap-1.5 cursor-pointer transition-all"
-                      style={{ borderRadius: "var(--radius)" }}
+                      className="min-h-[38px] md:min-h-0 px-2.5 py-1.5 rounded-xl md:rounded-md text-xs font-semibold bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 border border-rose-500/30 flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
                       title="Request changes from Script Writer"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
@@ -475,8 +496,7 @@ export function ScriptHeader({
                       type="button"
                       disabled={isSubmitting}
                       onClick={handleApprove}
-                      className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                      style={{ borderRadius: "var(--radius)" }}
+                      className="min-h-[38px] md:min-h-0 px-3.5 py-1.5 rounded-xl md:rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer whitespace-nowrap"
                       title="Approve script"
                     >
                       {isSubmitting ? (
@@ -490,7 +510,7 @@ export function ScriptHeader({
 
                   {/* If script is already done/approved in Scenario B */}
                   {scriptStatus === "done" && (
-                    <span className="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <span className="min-h-[38px] md:min-h-0 px-2.5 py-1 rounded-xl md:rounded text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 whitespace-nowrap">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Approved</span>
                     </span>
@@ -504,8 +524,14 @@ export function ScriptHeader({
 
       {/* Revision Request Dialog Modal */}
       {revisionModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-floating rounded-2xl w-full max-w-md p-6 space-y-4">
+        <div
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSubmitting) setRevisionModalOpen(false);
+          }}
+        >
+          <div className="glass-floating mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-5 sm:p-6 space-y-4">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center gap-2 pb-2 border-b border-border">
               <RotateCcw className="w-4 h-4 text-rose-400" />
               <h3 className="font-bold text-sm">Request Script Revisions</h3>
@@ -522,7 +548,7 @@ export function ScriptHeader({
               value={revisionNote}
               onChange={(e) => setRevisionNote(e.target.value)}
               placeholder="e.g. The retention hook in row 1 is too slow. Cut the intro and start straight with the proof..."
-              className="w-full p-3 text-xs rounded-xl glass-input"
+              className="w-full p-3 text-base sm:text-xs rounded-xl glass-input"
             />
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">

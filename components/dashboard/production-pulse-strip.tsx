@@ -126,7 +126,7 @@ export function ProductionPulseStrip({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-3.5">
       {cards.map((card) => {
         const Icon = card.icon;
         const isSelected = activeTab === card.targetTab;
@@ -135,30 +135,30 @@ export function ProductionPulseStrip({
             key={card.label}
             type="button"
             onClick={() => onSelectTab(card.targetTab)}
-            className={`card-theme p-4 rounded-2xl text-left flex items-center justify-between gap-3 transition-all duration-200 cursor-pointer hover:border-primary/45 ${
+            className={`card-theme p-3 md:p-4 rounded-2xl text-left flex items-center justify-between gap-2 md:gap-3 transition-all duration-200 cursor-pointer hover:border-primary/45 ${
               isSelected ? "ring-1 ring-primary/60 border-primary/50" : card.ringClass
             }`}
           >
             <div className="min-w-0 space-y-1">
-              <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground block">
+              <span className="text-[10px] md:text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground block truncate">
                 {card.label}
               </span>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold font-mono text-foreground leading-none">
+                <span className="text-xl md:text-2xl font-bold font-mono text-foreground leading-none">
                   {card.value}
                 </span>
-                <span className="text-[11px] font-mono text-muted-foreground">
+                <span className="text-[10px] md:text-[11px] font-mono text-muted-foreground">
                   {card.unit}
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground truncate">
+              <p className="text-[10px] md:text-[11px] text-muted-foreground truncate">
                 {card.subtext}
               </p>
             </div>
             <div
-              className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${card.accentClass}`}
+              className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border flex items-center justify-center shrink-0 ${card.accentClass}`}
             >
-              <Icon className="w-5 h-5" />
+              <Icon className="w-4 h-4 md:w-5 md:h-5" />
             </div>
           </button>
         );

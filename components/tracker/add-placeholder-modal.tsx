@@ -116,8 +116,14 @@ export function AddPlaceholderModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-md glass-floating rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-[99999] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose();
+      }}
+    >
+      <div className="w-full sm:max-w-md glass-floating mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90dvh]">
+        <div className="sm:hidden mobile-sheet-handle mt-2.5 mb-0.5" />
         {/* Modal Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30 gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -163,7 +169,7 @@ export function AddPlaceholderModal({
               required
               value={publishDate}
               onChange={(e) => setPublishDate(e.target.value)}
-              className="w-full h-9 px-3 rounded-xl glass-input text-foreground font-mono text-xs"
+              className="w-full h-10 sm:h-9 px-3 rounded-xl glass-input text-foreground font-mono text-base sm:text-xs"
             />
             <p className="text-[11px] text-muted-foreground mt-1">
               This slot will be marked as a manually added custom publish date (⚙️).
@@ -259,7 +265,7 @@ export function AddPlaceholderModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Leave blank to create an open placeholder slot..."
-              className="w-full h-9 px-3 rounded bg-background border border-border text-foreground text-xs focus:outline-none focus:border-primary"
+              className="w-full h-10 sm:h-9 px-3 rounded-xl bg-background border border-border text-foreground text-base sm:text-xs focus:outline-none focus:border-primary"
             />
             <p className="text-[11px] text-muted-foreground mt-1">
               If titled, an ID will be generated immediately and Ideation will be marked Done.

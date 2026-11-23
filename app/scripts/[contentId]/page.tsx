@@ -51,6 +51,7 @@ export default function ScriptStudioPage({
   const [isTableMinimized, setIsTableMinimized] = useState<boolean>(false);
   const [isNotesMinimized, setIsNotesMinimized] = useState<boolean>(false);
   const [layoutOrientation, setLayoutOrientation] = useState<"vertical" | "horizontal">("vertical");
+  const [mobileWorkspaceMode, setMobileWorkspaceMode] = useState<"notes" | "table" | "both">("table");
 
   // Session Undo / Redo History Stack with Local Cache
   interface SessionSnapshot {
@@ -164,6 +165,9 @@ export default function ScriptStudioPage({
         const storedMain = localStorage.getItem(`contentpipe_notes_main_${contentId}`);
         if (storedMain === "true") {
           setIsNotesMainScript(true);
+          setMobileWorkspaceMode("notes");
+        } else {
+          setMobileWorkspaceMode("table");
         }
         const storedTableMin = localStorage.getItem(`contentpipe_table_min_${contentId}`);
         if (storedTableMin === "true") {
@@ -527,7 +531,7 @@ export default function ScriptStudioPage({
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-between w-full">
+    <div className="min-h-screen flex flex-col justify-between w-full pb-20 md:pb-0">
       {/* Loading & Error States */}
       {loading ? (
         <div className="card-theme p-16 text-center my-auto flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
@@ -582,15 +586,47 @@ export default function ScriptStudioPage({
 
           {/* Main Studio Body - Full Edge-to-Edge Utilization */}
           <main
-            className={`w-full flex-1 px-1.5 py-2 sm:px-3 md:px-6 md:py-3 ${
+            className={`w-full flex-1 px-2 py-2 sm:px-3 md:px-6 md:py-3 ${
               layoutOrientation === "horizontal" && !isTableMinimized && !isNotesMinimized
                 ? "grid grid-cols-1 lg:grid-cols-2 gap-2.5 sm:gap-4 items-start"
                 : "flex flex-col gap-2.5 sm:gap-4"
             }`}
           >
+            {/* Mobile Segmented Workspace Mode Switcher (< md) */}
+            <div className="md:hidden col-span-full flex items-center p-1 rounded-xl glass-subtle border border-border/80 w-full">
+              {(
+                [
+                  { id: "notes", label: "Notes" },
+                  { id: "table", label: "Table" },
+                  { id: "both", label: "Both" },
+                ] as const
+              ).map((tab) => {
+                const isActive = mobileWorkspaceMode === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setMobileWorkspaceMode(tab.id)}
+                    className={`flex-1 min-h-[36px] rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
             {(() => {
               const notesSection = (
-                <section key="notes" className="min-w-0 animate-in fade-in duration-150">
+                <section
+                  key="notes"
+                  className={`min-w-0 animate-in fade-in duration-150 ${
+                    mobileWorkspaceMode === "table" ? "hidden md:block" : "block"
+                  }`}
+                >
                   <ScriptNotes
                     notes={customNotes}
                     canEdit={userPermissions.canEdit}
@@ -605,7 +641,12 @@ export default function ScriptStudioPage({
               );
 
               const tableSection = (
-                <section key="table" className="min-w-0">
+                <section
+                  key="table"
+                  className={`min-w-0 ${
+                    mobileWorkspaceMode === "notes" ? "hidden md:block" : "block"
+                  }`}
+                >
                   <ScriptTable
                     columns={columns}
                     rows={rows}
@@ -648,7 +689,7 @@ export default function ScriptStudioPage({
           />
 
           {/* Studio Footer */}
-          <footer className="w-full text-center text-xs text-muted-foreground py-3 font-mono border-t border-border px-4">
+          <footer className="hidden md:block w-full text-center text-xs text-muted-foreground py-3 font-mono border-t border-border px-4">
             ContentPipe • The Scripting Environment & Teleprompter
           </footer>
         </>

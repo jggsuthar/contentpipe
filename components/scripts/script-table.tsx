@@ -20,6 +20,7 @@ import {
   Minimize2,
   Maximize2,
   Table2,
+  LayoutGrid,
 } from "lucide-react";
 import {
   ScriptColumnSchema,
@@ -100,6 +101,9 @@ export function ScriptTable({
 
   // Paste error alert banner
   const [pasteError, setPasteError] = useState<string | null>(null);
+
+  // Mobile view switcher: Cards (default on < md) vs Table
+  const [mobileViewMode, setMobileViewMode] = useState<"cards" | "table">("cards");
 
   // Focus target after row addition
   const pendingFocusRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
@@ -748,6 +752,38 @@ export function ScriptTable({
         </div>
 
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {!isMinimized && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex md:hidden items-center p-0.5 rounded-xl glass-subtle text-[11px] font-mono gap-0.5"
+            >
+              <button
+                type="button"
+                onClick={() => setMobileViewMode("cards")}
+                className={`px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer transition-all ${
+                  mobileViewMode === "cards"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <LayoutGrid className="w-3 h-3" />
+                <span>Cards</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileViewMode("table")}
+                className={`px-2 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer transition-all ${
+                  mobileViewMode === "table"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <Table2 className="w-3 h-3" />
+                <span>Table</span>
+              </button>
+            </div>
+          )}
+
           {onOpenAllComments && (
             <button
               type="button"
@@ -935,9 +971,195 @@ export function ScriptTable({
         </div>
       )}
 
+      {/* Mobile Scene Cards View (< md when mobileViewMode === "cards") */}
+      {mobileViewMode === "cards" && (
+        <div className="md:hidden p-2 space-y-2.5">
+          {rows.length === 0 ? (
+            <div className="py-10 px-4 text-center rounded-xl border border-dashed border-border/80 glass-subtle space-y-2.5">
+              <p className="text-xs font-mono text-muted-foreground">
+                No script rows yet. Script is empty.
+              </p>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleAddRowBelow(-1, 0)}
+                  className="px-3.5 min-h-[40px] rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add First Script Row</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {rows.map((row, rowIndex) => {
+                const rowComments = comments.filter((c) => c.sr_no === row.sr_no);
+                const unresolvedComments = rowComments.filter((c) => !c.is_resolved);
+                const hasRevisionFeedback =
+                  scriptStatus === "revision_requested" && rowComments.length > 0;
+
+                return (
+                  <div
+                    key={row.sr_no || rowIndex}
+                    className={`p-3 rounded-xl glass-subtle border space-y-2.5 ${
+                      hasRevisionFeedback
+                        ? "bg-rose-500/[0.04] border-rose-500/40 border-l-4 border-l-rose-500"
+                        : "border-border/80"
+                    }`}
+                  >
+                    {/* Card Header: Line # + Comments + Row Controls */}
+                    <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary/15 text-primary border border-primary/25">
+                        Line #{row.sr_no}
+                      </span>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onOpenRowComments(row.sr_no)}
+                          className={`min-h-[32px] px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer border ${
+                            unresolvedComments.length > 0
+                              ? "bg-rose-500/15 text-rose-400 border-rose-500/30 font-bold"
+                              : rowComments.length > 0
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                              : "text-muted-foreground border-border/70 hover:text-foreground"
+                          }`}
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>{rowComments.length > 0 ? rowComments.length : "+"}</span>
+                        </button>
+
+                        {canEdit && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveRow(rowIndex, "up")}
+                              disabled={rowIndex === 0}
+                              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-25 cursor-pointer"
+                              aria-label="Move row up"
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveRow(rowIndex, "down")}
+                              disabled={rowIndex === rows.length - 1}
+                              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-25 cursor-pointer"
+                              aria-label="Move row down"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAddRowBelow(rowIndex, 0)}
+                              className="p-1.5 rounded-lg hover:bg-primary/15 text-primary cursor-pointer"
+                              aria-label="Insert row below"
+                              title="Insert scene below"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRow(rowIndex)}
+                              className="p-1.5 rounded-lg hover:bg-destructive/15 text-muted-foreground hover:text-destructive cursor-pointer"
+                              aria-label="Delete row"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Editable Scene Fields */}
+                    <div className="space-y-2">
+                      {visibleDataColumns.map((col) => {
+                        const cellValue = getCellValue(row, col.id);
+                        const isDropdown = col.type === "dropdown";
+                        const options = col.options || [
+                          "A-Roll",
+                          "B-Roll",
+                          "Screen Recording",
+                          "Voiceover",
+                        ];
+                        const isDialogue =
+                          col.id === "col_dialogue" ||
+                          col.name.toLowerCase().includes("dialogue");
+
+                        return (
+                          <div key={col.id} className="space-y-1">
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block">
+                              {col.name}
+                            </label>
+                            {isDropdown ? (
+                              <select
+                                disabled={!canEdit}
+                                value={cellValue}
+                                onChange={(e) => handleCellChange(rowIndex, col.id, e.target.value)}
+                                className="w-full h-9 px-2.5 text-base sm:text-xs rounded-xl glass-input cursor-pointer disabled:opacity-75"
+                              >
+                                <option value="">Select {col.name}...</option>
+                                {cellValue && !options.includes(cellValue) && (
+                                  <option value={cellValue}>{cellValue}</option>
+                                )}
+                                {options.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="grid w-full relative items-start">
+                                <div
+                                  aria-hidden="true"
+                                  className={`col-start-1 row-start-1 invisible w-full px-2.5 py-2 text-base sm:text-xs font-sans leading-relaxed whitespace-pre-wrap break-words pointer-events-none select-none ${
+                                    isDialogue ? "min-h-[56px]" : "min-h-[38px]"
+                                  }`}
+                                >
+                                  {cellValue ? cellValue + " " : "\u00A0"}
+                                </div>
+                                <textarea
+                                  rows={isDialogue ? 2 : 1}
+                                  disabled={!canEdit}
+                                  value={cellValue}
+                                  onChange={(e) =>
+                                    handleCellChange(rowIndex, col.id, e.target.value)
+                                  }
+                                  placeholder={`Enter ${col.name.toLowerCase()}...`}
+                                  className={`col-start-1 row-start-1 w-full h-full px-2.5 py-2 text-base sm:text-xs rounded-xl glass-input resize-none leading-relaxed font-sans overflow-hidden disabled:opacity-80 ${
+                                    isDialogue ? "min-h-[56px]" : "min-h-[38px]"
+                                  }`}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleAddRowBelow(rows.length - 1, 0)}
+                  className="w-full min-h-[40px] rounded-xl text-xs font-semibold bg-primary/15 text-primary hover:bg-primary/25 border border-primary/25 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Scene Row</span>
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Main Compact Spreadsheet View */}
       <div
-        className={`overflow-x-auto ${
+        className={`${
+          mobileViewMode === "table" ? "block" : "hidden md:block"
+        } overflow-x-auto ${
           isExpandedWorkspace ? "min-h-[calc(100dvh-260px)]" : ""
         }`}
       >
@@ -1264,8 +1486,14 @@ export function ScriptTable({
 
       {/* Add Custom Column Modal */}
       {newColModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-floating rounded-2xl w-full max-w-sm p-6 space-y-4">
+        <div
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setNewColModalOpen(false);
+          }}
+        >
+          <div className="glass-floating mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm p-5 sm:p-6 space-y-4">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <h3 className="font-bold text-sm">Add Custom Column</h3>
               <button

@@ -127,7 +127,7 @@ export function StorageCleanupView({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between p-4 md:p-8">
+    <div className="min-h-screen flex flex-col justify-between px-3 py-3 pb-24 md:p-8">
       {/* Page Title Header */}
       <div className="w-full max-w-7xl mx-auto flex items-center justify-between pb-4 border-b border-border">
         <div className="flex items-center gap-3">
@@ -185,10 +185,10 @@ export function StorageCleanupView({
         </div>
 
         {/* Brand & Content Series Filters Bar */}
-        <div className="p-3.5 rounded-2xl glass-nav border border-border flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+        <div className="p-3 sm:p-3.5 rounded-2xl glass-nav border border-border flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono w-full md:w-auto">
+            <div className="flex items-center gap-1.5 flex-1 sm:flex-initial min-w-[140px]">
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground shrink-0">
                 Brand:
               </span>
               <select
@@ -198,7 +198,7 @@ export function StorageCleanupView({
                   setSeriesFilter("all");
                 }}
                 aria-label="Filter by Brand"
-                className="h-8 px-2.5 rounded-xl glass-input cursor-pointer text-xs font-semibold"
+                className="h-9 sm:h-8 px-2.5 rounded-xl glass-input cursor-pointer text-xs font-semibold w-full sm:w-auto"
               >
                 <option value="all">All Brands</option>
                 {brandOptions.map((b) => (
@@ -209,16 +209,16 @@ export function StorageCleanupView({
               </select>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-1 sm:flex-initial min-w-[160px]">
               <Layers className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              <span className="hidden sm:inline text-[11px] uppercase tracking-wider text-muted-foreground shrink-0">
                 Content Series:
               </span>
               <select
                 value={seriesFilter}
                 onChange={(e) => setSeriesFilter(e.target.value)}
                 aria-label="Filter by Content Series"
-                className="h-8 px-2.5 rounded-xl glass-input cursor-pointer text-xs font-semibold"
+                className="h-9 sm:h-8 px-2.5 rounded-xl glass-input cursor-pointer text-xs font-semibold w-full sm:w-auto"
               >
                 <option value="all">All Content Series</option>
                 {seriesOptions.map((s) => (
@@ -236,8 +236,159 @@ export function StorageCleanupView({
           </div>
         </div>
 
-        {/* Storage Management Matrix Table */}
-        <div className="card-theme rounded-2xl overflow-hidden">
+        {/* Mobile Project Storage Cards (< md) */}
+        <div className="md:hidden space-y-2.5">
+          {filteredItems.length === 0 ? (
+            <div className="card-theme p-8 rounded-2xl text-center text-xs text-muted-foreground font-mono">
+              No video projects match the selected Brand / Content Series filter.
+            </div>
+          ) : (
+            filteredItems.map((item) => {
+              const pDate = new Date(item.publish_date);
+              const formattedDate = pDate.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              });
+
+              return (
+                <div
+                  key={item.id}
+                  className="card-theme p-3.5 rounded-2xl space-y-3"
+                >
+                  {/* Card Header: ID + Status + Total Size */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {item.unique_content_id ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary/15 text-primary border border-primary/25">
+                          {item.unique_content_id}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-muted-foreground bg-muted">
+                          No ID
+                        </span>
+                      )}
+
+                      {item.is_archived ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-muted text-muted-foreground border border-border">
+                          Archived
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          Active
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="text-xs font-mono font-bold text-foreground">
+                      {formatSize(item.total_size_bytes)}
+                    </span>
+                  </div>
+
+                  {/* Title & Series Meta */}
+                  <div className="space-y-0.5">
+                    <h4 className="font-semibold text-sm text-foreground leading-snug line-clamp-2">
+                      {item.title}
+                    </h4>
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground flex-wrap">
+                      {item.brand_name && (
+                        <>
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: item.brand_color || "#6366f1" }}
+                          />
+                          <span className="text-foreground/80">{item.brand_name}</span>
+                          <span>•</span>
+                        </>
+                      )}
+                      <span>{item.content_type_name}</span>
+                      <span>•</span>
+                      <span>{formattedDate}</span>
+                    </div>
+                  </div>
+
+                  {/* 1-Tap Cleanup Buttons */}
+                  <div className="grid grid-cols-1 gap-1.5 pt-2 border-t border-border/60">
+                    <button
+                      type="button"
+                      disabled={item.raw_size_bytes <= 0}
+                      onClick={() =>
+                        setConfirmModal({
+                          item,
+                          target: "raw_footage",
+                          targetLabel: "Raw Footage & B-Roll",
+                          sizeBytes: item.raw_size_bytes,
+                        })
+                      }
+                      className={`w-full min-h-[40px] px-3 rounded-xl text-xs font-mono flex items-center justify-between border transition-colors ${
+                        item.raw_size_bytes > 0
+                          ? "bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20 cursor-pointer font-semibold"
+                          : "glass-subtle text-muted-foreground border-border/50 opacity-55 cursor-default"
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Raw Footage</span>
+                      </span>
+                      <span>{formatSize(item.raw_size_bytes)}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={item.drafts_size_bytes <= 0}
+                      onClick={() =>
+                        setConfirmModal({
+                          item,
+                          target: "draft_iterations",
+                          targetLabel: "Draft Iterations (V1, V2...)",
+                          sizeBytes: item.drafts_size_bytes,
+                        })
+                      }
+                      className={`w-full min-h-[40px] px-3 rounded-xl text-xs font-mono flex items-center justify-between border transition-colors ${
+                        item.drafts_size_bytes > 0
+                          ? "bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20 cursor-pointer font-semibold"
+                          : "glass-subtle text-muted-foreground border-border/50 opacity-55 cursor-default"
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Draft Cuts</span>
+                      </span>
+                      <span>{formatSize(item.drafts_size_bytes)}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={item.final_size_bytes <= 0}
+                      onClick={() =>
+                        setConfirmModal({
+                          item,
+                          target: "final_export",
+                          targetLabel: "Final Export Video",
+                          sizeBytes: item.final_size_bytes,
+                        })
+                      }
+                      className={`w-full min-h-[40px] px-3 rounded-xl text-xs font-mono flex items-center justify-between border transition-colors ${
+                        item.final_size_bytes > 0
+                          ? "bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20 cursor-pointer font-semibold"
+                          : "glass-subtle text-muted-foreground border-border/50 opacity-55 cursor-default"
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Final Export</span>
+                      </span>
+                      <span>{formatSize(item.final_size_bytes)}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Storage Management Matrix Table */}
+        <div className="hidden md:block card-theme rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -415,8 +566,14 @@ export function StorageCleanupView({
 
       {/* Confirmation Modal */}
       {confirmModal && (
-        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-floating rounded-2xl w-full max-w-md p-6 space-y-4 border-destructive/40">
+        <div
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isDeleting) setConfirmModal(null);
+          }}
+        >
+          <div className="glass-floating mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-5 sm:p-6 space-y-4 border-destructive/40">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center gap-2 text-destructive pb-2 border-b border-border">
               <AlertTriangle className="w-5 h-5 shrink-0" />
               <h3 className="font-bold text-sm">Confirm Google Drive Deletion</h3>
@@ -469,8 +626,8 @@ export function StorageCleanupView({
       )}
 
       {/* Footer */}
-      <footer className="w-full text-center text-xs text-muted-foreground py-4 font-mono border-t border-border max-w-7xl mx-auto">
-        ContentPipe • Google Drive Storage Cleanup Utility (SPEC.md Section 6.4)
+      <footer className="hidden md:block w-full text-center text-xs text-muted-foreground py-4 font-mono border-t border-border max-w-7xl mx-auto">
+        ContentPipe • Google Drive Storage Cleanup Utility
       </footer>
     </div>
   );

@@ -98,19 +98,19 @@ export default function TeamDashboardPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-6 md:p-10">
+    <div className="flex-1 flex flex-col justify-between px-3 py-3 pb-24 md:p-10 md:pb-10">
       {/* Main Content Area */}
-      <main className="w-full max-w-6xl mx-auto my-2 flex-1 space-y-8">
+      <main className="w-full max-w-6xl mx-auto my-1 md:my-2 flex-1 space-y-4 md:space-y-8">
         {/* Frosted Brand Filter Pill Bar */}
         {brandsList.length > 0 && (
-          <div className="glass-nav rounded-2xl border border-border px-3.5 py-2.5 flex items-center gap-2 flex-wrap shadow-sm">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1">
+          <div className="glass-nav rounded-2xl border border-border px-3 py-2 md:px-3.5 md:py-2.5 flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar md:flex-wrap shadow-sm">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1 shrink-0">
               Brand:
             </span>
             <button
               type="button"
               onClick={() => setBrandFilter("all")}
-              className={`px-3 py-1 rounded-full text-xs font-mono font-semibold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 md:py-1 rounded-full text-xs font-mono font-semibold transition-all cursor-pointer shrink-0 ${
                 brandFilter === "all"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "glass-subtle text-muted-foreground hover:text-foreground"
@@ -123,7 +123,7 @@ export default function TeamDashboardPage() {
                 key={brand.id}
                 type="button"
                 onClick={() => setBrandFilter(brand.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 md:py-1 rounded-full text-xs font-mono font-semibold transition-all cursor-pointer shrink-0 ${
                   brandFilter === brand.id
                     ? "bg-primary text-primary-foreground shadow-xs"
                     : "glass-subtle text-muted-foreground hover:text-foreground"
@@ -170,7 +170,7 @@ export default function TeamDashboardPage() {
             </div>
 
             {/* Section 1: "Changes Requested" (Immediate Action Required) */}
-            <div className="card-theme p-6 rounded-2xl space-y-4">
+            <div className="card-theme p-4 sm:p-6 rounded-2xl space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-border/70">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-status-revision/15 text-status-revision flex items-center justify-center">
@@ -265,8 +265,8 @@ export default function TeamDashboardPage() {
             </div>
 
             {/* Section 2: "Up Next" Queue (Prioritized Pipeline) */}
-            <div className="card-theme p-6 rounded-2xl space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-border/70">
+            <div className="card-theme p-4 sm:p-6 rounded-2xl space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border/70">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
                     <Clock className="w-4 h-4" />
@@ -396,7 +396,7 @@ export default function TeamDashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full text-center text-xs text-muted-foreground py-4 font-mono border-t border-border max-w-6xl mx-auto">
+      <footer className="hidden md:block w-full text-center text-xs text-muted-foreground py-4 font-mono border-t border-border max-w-6xl mx-auto">
         ContentPipe • Team Workspace Monitor
       </footer>
     </div>

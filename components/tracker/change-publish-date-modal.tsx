@@ -110,8 +110,14 @@ export function ChangePublishDateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-black/45 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-lg glass-floating rounded-2xl overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 z-[99999] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose();
+      }}
+    >
+      <div className="w-full sm:max-w-lg glass-floating mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90dvh]">
+        <div className="sm:hidden mobile-sheet-handle mt-2.5 mb-0.5" />
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/30 gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -156,7 +162,7 @@ export function ChangePublishDateModal({
         </div>
 
         {/* Body Content */}
-        <div className="p-5 space-y-4 text-xs">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
           {error && (
             <div className="p-3 rounded bg-destructive/15 text-destructive border border-destructive/30 text-xs font-mono">
               {error}
@@ -205,7 +211,7 @@ export function ChangePublishDateModal({
                   type="date"
                   value={newPublishDate}
                   onChange={(e) => setNewPublishDate(e.target.value)}
-                  className="w-full h-9 px-3 rounded-xl glass-input text-foreground font-mono text-xs"
+                  className="w-full h-10 sm:h-9 px-3 rounded-xl glass-input text-foreground font-mono text-base sm:text-xs"
                 />
               </div>
 

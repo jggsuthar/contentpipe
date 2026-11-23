@@ -104,6 +104,7 @@ interface MatrixTableProps {
   workflowTasks: WorkflowTaskColumn[];
   miscTasks?: MiscTaskColumn[];
   contentTypeId: string;
+  mobileViewMode?: "cards" | "grid";
   isCreator?: boolean;
   canInputIdeation?: boolean;
   canChangePublish?: boolean;
@@ -130,6 +131,7 @@ export function MatrixTable({
   workflowTasks,
   miscTasks = [],
   contentTypeId,
+  mobileViewMode = "cards",
   isCreator = true,
   canInputIdeation = true,
   canChangePublish = true,
@@ -163,6 +165,12 @@ export function MatrixTable({
   // Task status menu dropdown state: `${row.id}_${task_name}`
   const [activeStatusMenuKey, setActiveStatusMenuKey] = useState<string | null>(null);
   const [statusUpdatingKey, setStatusUpdatingKey] = useState<string | null>(null);
+
+  // Mobile 1-Tap Stage Status Bottom Sheet state
+  const [mobileStageSheet, setMobileStageSheet] = useState<{
+    rowId: string;
+    task: WorkflowTaskColumn;
+  } | null>(null);
 
   // Validation / Error banner
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -496,6 +504,136 @@ export function MatrixTable({
     return null;
   };
 
+  // Shared workflow progress & stage evaluator (used by both Mobile Cards & Desktop Table)
+  const computeRowLastDone = (row: MatrixRowItem) => {
+    let lastDoneIndex = -1;
+    let lastDoneColorHex: string | null = null;
+    for (let i = visibleWorkflowTasks.length - 1; i >= 0; i--) {
+      const t = visibleWorkflowTasks[i];
+      const tKey = t.task_name.toLowerCase();
+      let isDone = false;
+      if (tKey === "ideation") {
+        isDone = Boolean(row.title && row.unique_content_id);
+      } else if (tKey === "publish") {
+        const prev = visibleWorkflowTasks.slice(0, i);
+        const allPriorDone = prev.every((prior) => {
+          const pk = prior.task_name.toLowerCase();
+          if (pk === "ideation") return Boolean(row.title && row.unique_content_id);
+          return row.task_instances.find((inst) => inst.task_name.toLowerCase() === pk)?.status === "done";
+        });
+        const pDate = new Date(row.publish_date);
+        pDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const pubPassed = today.getTime() >= pDate.getTime();
+        isDone = allPriorDone && pubPassed;
+      } else {
+        isDone = row.task_instances.find((inst) => inst.task_name.toLowerCase() === tKey)?.status === "done";
+      }
+      if (isDone) {
+        lastDoneIndex = i;
+        lastDoneColorHex = resolveTaskColorHex(t.task_name, t.color);
+        break;
+      }
+    }
+    return { lastDoneIndex, lastDoneColorHex };
+  };
+
+  const evaluateStageState = (
+    row: MatrixRowItem,
+    task: WorkflowTaskColumn,
+    colIndex: number,
+    lastDoneIndex: number,
+    lastDoneColorHex: string | null
+  ) => {
+    const taskKey = task.task_name.toLowerCase();
+    const isIdeation = taskKey === "ideation";
+    const isPublish = taskKey === "publish";
+    const isCellColored = lastDoneIndex !== -1 && colIndex <= lastDoneIndex;
+    const cellBg = isCellColored ? (lastDoneColorHex || undefined) : undefined;
+
+    const targetDates = row.task_target_dates?.[taskKey];
+    const worstCaseStr = formatDateDisplay(targetDates?.worst_case);
+    const teamStr = formatDateDisplay(targetDates?.team);
+
+    const existingInstance = row.task_instances.find(
+      (t) => t.task_name.toLowerCase() === taskKey
+    );
+    const isIdeationDone = Boolean(row.title && row.unique_content_id);
+
+    let isPublishDone = false;
+    let publishBlockedReason = "";
+    if (isPublish) {
+      const previousTasks = visibleWorkflowTasks.slice(0, colIndex);
+      let allPriorDone = true;
+      const missingTasks: string[] = [];
+      for (const prior of previousTasks) {
+        const pk = prior.task_name.toLowerCase();
+        if (pk === "ideation") {
+          if (!row.title || !row.unique_content_id) {
+            allPriorDone = false;
+            missingTasks.push("Ideation");
+          }
+        } else {
+          const inst = row.task_instances.find((ti) => ti.task_name.toLowerCase() === pk);
+          if (inst?.status !== "done") {
+            allPriorDone = false;
+            missingTasks.push(prior.task_name);
+          }
+        }
+      }
+
+      const pDate = new Date(row.publish_date);
+      pDate.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const publishDatePassed = today.getTime() >= pDate.getTime();
+
+      isPublishDone = allPriorDone && publishDatePassed;
+
+      if (!isPublishDone) {
+        if (!allPriorDone && !publishDatePassed) {
+          publishBlockedReason = `Waiting on: ${missingTasks.join(", ")} & Publish Date (${formatDateDisplay(row.publish_date)})`;
+        } else if (!allPriorDone) {
+          publishBlockedReason = `Waiting on: ${missingTasks.join(", ")}`;
+        } else {
+          publishBlockedReason = `All tasks complete! Awaiting Publish Date (${formatDateDisplay(row.publish_date)})`;
+        }
+      }
+    }
+
+    const taskStatus: TaskStatus = isIdeation
+      ? isIdeationDone
+        ? "done"
+        : "not_done"
+      : isPublish
+      ? isPublishDone
+        ? "done"
+        : "not_done"
+      : existingInstance?.status || "not_done";
+
+    const urgencyTargetIso = isPublish
+      ? targetDates?.worst_case || row.publish_date
+      : isCreator
+      ? targetDates?.worst_case
+      : targetDates?.team || targetDates?.worst_case;
+
+    return {
+      taskKey,
+      isIdeation,
+      isPublish,
+      isCellColored,
+      cellBg,
+      worstCaseStr,
+      teamStr,
+      isIdeationDone,
+      isPublishDone,
+      publishBlockedReason,
+      taskStatus,
+      urgencyTargetIso,
+    };
+  };
+
   return (
     <div className="w-full card-theme rounded-2xl">
       {/* Sequential Dependency or Action Error Banner */}
@@ -514,16 +652,451 @@ export function MatrixTable({
         </div>
       )}
 
-      <table className="w-full min-w-max text-left border-separate border-spacing-0 text-xs">
+      {/* Mobile Card Register View (default on < md when mobileViewMode === "cards") */}
+      {mobileViewMode === "cards" && (
+        <div className="md:hidden p-2 space-y-2.5">
+          {selectedForSwap && (
+            <div className="sticky top-2 z-20 px-3 py-2 rounded-xl bg-primary/15 border border-primary/40 backdrop-blur-md flex items-center justify-between gap-2 text-xs">
+              <span className="font-mono font-semibold text-foreground truncate">
+                Swapping <strong className="text-primary">{selectedForSwap.unique_content_id || "Open Slot"}</strong> — tap Swap on target
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedForSwap(null)}
+                className="px-2 py-1 rounded-lg bg-background/80 border border-border text-[11px] font-semibold shrink-0 cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {rows.map((row) => {
+            const isEmptyPlaceholder = !row.title;
+            const isSelectedSwap = selectedForSwap?.id === row.id;
+            const isEditing = editingTitleRowId === row.id;
+            const isSaving = savingRowId === row.id;
+            const openActionsCount = row.custom_action_items.filter((ai) => !ai.is_closed).length;
+            const miscCompletedCount = (row.misc_tasks_status || []).filter((m) => m.is_done).length;
+            const miscTotalCount = miscTasks.length;
+            const allMiscDone = miscTotalCount > 0 && miscCompletedCount === miscTotalCount;
+            const { lastDoneIndex, lastDoneColorHex } = computeRowLastDone(row);
+
+            const publishColIdx = visibleWorkflowTasks.findIndex(
+              (t) => t.task_name.toLowerCase() === "publish"
+            );
+            const publishState =
+              publishColIdx >= 0
+                ? evaluateStageState(
+                    row,
+                    visibleWorkflowTasks[publishColIdx],
+                    publishColIdx,
+                    lastDoneIndex,
+                    lastDoneColorHex
+                  )
+                : null;
+            const isPublishDone = Boolean(publishState?.isPublishDone);
+            const canEditPublishDate =
+              (isCreator || canChangePublish) && !isPublishDone && Boolean(onChangePublishDate);
+
+            const isManual = Boolean(row.is_manual_publish_date);
+            const isCadenceMatch = row.cadence_match?.matches ?? true;
+
+            return (
+              <div
+                key={row.id}
+                className={`p-3.5 rounded-2xl glass-subtle border space-y-2.5 transition-all ${
+                  isSelectedSwap
+                    ? "border-primary ring-2 ring-primary/35 bg-primary/5"
+                    : isEmptyPlaceholder
+                    ? "border-dashed border-border/80 opacity-90"
+                    : "border-border/80"
+                }`}
+              >
+                {/* Card Header: Content ID + Publish Date Pill + Quick Actions */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    {row.unique_content_id ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary/15 text-primary border border-primary/25 shrink-0">
+                        {row.unique_content_id}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border border-dashed border-amber-500/50 text-amber-400 bg-amber-500/10 shrink-0">
+                        Open Slot
+                      </span>
+                    )}
+
+                    {/* Publish Date Pill */}
+                    {canEditPublishDate ? (
+                      <button
+                        type="button"
+                        onClick={() => onChangePublishDate && onChangePublishDate(row)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-muted/70 hover:bg-muted text-foreground border border-border cursor-pointer shrink-0"
+                        title="Tap to change publish date"
+                      >
+                        <Calendar className="w-2.5 h-2.5 text-primary" />
+                        <span>{formatDateDisplay(row.publish_date)}</span>
+                        {isManual ? (
+                          <Settings2 className="w-2.5 h-2.5 text-sky-400" />
+                        ) : isCadenceMatch ? (
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                        ) : (
+                          <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+                        )}
+                        <Edit3 className="w-2.5 h-2.5 opacity-60" />
+                      </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold glass-subtle text-muted-foreground border border-border/60 shrink-0">
+                        <Calendar className="w-2.5 h-2.5" />
+                        <span>{formatDateDisplay(row.publish_date)}</span>
+                        {isManual ? (
+                          <Settings2 className="w-2.5 h-2.5 text-sky-400" />
+                        ) : isCadenceMatch ? (
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                        ) : (
+                          <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+                        )}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Right Quick Icons: Swap, Archive/Restore, Delete */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleSwapClick(row)}
+                      className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                        isSelectedSwap
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                      }`}
+                      aria-label="Swap slot"
+                      title={isSelectedSwap ? "Cancel swap" : "Swap slot"}
+                    >
+                      <ArrowLeftRight className="w-3.5 h-3.5" />
+                    </button>
+
+                    {row.is_archived ? (
+                      (isCreator || indexPermissions?.archive === "edit") && (
+                        <button
+                          type="button"
+                          onClick={() => handleArchiveClick(row, "unarchive")}
+                          className="p-1.5 rounded-lg text-primary hover:bg-primary/15 transition-colors cursor-pointer"
+                          aria-label="Restore from archive"
+                          title="Restore to active tracker"
+                        >
+                          <ArchiveRestore className="w-3.5 h-3.5" />
+                        </button>
+                      )
+                    ) : (
+                      !isEmptyPlaceholder &&
+                      row.is_archive_eligible &&
+                      (isCreator || indexPermissions?.archive === "edit") && (
+                        <button
+                          type="button"
+                          onClick={() => handleArchiveClick(row, "archive")}
+                          className="px-2 py-1 rounded-lg bg-primary text-primary-foreground text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                          title="Move to Archive"
+                        >
+                          <Archive className="w-3 h-3" />
+                          <span>Archive</span>
+                        </button>
+                      )
+                    )}
+
+                    {(isCreator || titleAccess === "edit") && onDeletePlaceholder && (
+                      <button
+                        type="button"
+                        onClick={() => onDeletePlaceholder(row)}
+                        className="p-1.5 rounded-lg text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                        aria-label="Delete slot"
+                        title="Delete placeholder / content"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Title Row */}
+                <div>
+                  {titleAccess === "none" ? (
+                    <div className="py-1 text-muted-foreground/40 font-mono italic text-xs select-none">
+                      ••••••••
+                    </div>
+                  ) : isEditing ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={titleDraft}
+                      onChange={(e) => setTitleDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitTitle(row);
+                        if (e.key === "Escape") setEditingTitleRowId(null);
+                      }}
+                      onBlur={() => commitTitle(row)}
+                      placeholder="Type title to claim ID & mark Ideation Done..."
+                      className="w-full h-10 px-3 text-base sm:text-xs rounded-xl glass-input"
+                    />
+                  ) : (
+                    <div className="space-y-1.5">
+                      <button
+                        type="button"
+                        disabled={titleAccess !== "edit"}
+                        onClick={() => titleAccess === "edit" && startEditing(row)}
+                        className={`w-full text-left flex items-center justify-between gap-2 rounded-xl transition-colors ${
+                          titleAccess !== "edit"
+                            ? "cursor-default text-sm font-semibold text-foreground"
+                            : isEmptyPlaceholder
+                            ? "px-2.5 py-2 border border-dashed border-border/80 text-xs text-muted-foreground hover:border-primary/50 cursor-text"
+                            : "text-sm font-semibold text-foreground hover:text-primary cursor-text"
+                        }`}
+                      >
+                        <span className="line-clamp-2 leading-snug">
+                          {row.title || (titleAccess === "edit" ? "Tap to register video title..." : "Open placeholder slot")}
+                        </span>
+                        {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />}
+                      </button>
+
+                      {/* Content Link Badge / Trigger */}
+                      {row.published_url ? (
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={row.published_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                            <span>Content Link</span>
+                          </a>
+                          {isCreator && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditUrlInput(row.published_url || "");
+                                setEditLinkModal({ row, url: row.published_url || "" });
+                              }}
+                              className="p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer"
+                              aria-label="Edit content link"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        row.title &&
+                        isCreator && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditUrlInput("");
+                              setEditLinkModal({ row, url: "" });
+                            }}
+                            className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/75 hover:text-foreground cursor-pointer"
+                          >
+                            <Link2 className="w-2.5 h-2.5" />
+                            <span>+ Content Link</span>
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Interactive Stage Pipeline Strip */}
+                <div className="flex items-stretch gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {visibleWorkflowTasks.map((task, colIndex) => {
+                    const st = evaluateStageState(
+                      row,
+                      task,
+                      colIndex,
+                      lastDoneIndex,
+                      lastDoneColorHex
+                    );
+                    const stageColorHex = resolveTaskColorHex(task.task_name, task.color);
+                    const menuKey = `${row.id}_${task.task_name}`;
+                    const isUpdating = statusUpdatingKey === menuKey;
+                    const isEditableIntermediate =
+                      !st.isIdeation &&
+                      !st.isPublish &&
+                      !isEmptyPlaceholder &&
+                      canEditTask(task.task_name);
+                    const canTapIdeation = st.isIdeation && titleAccess === "edit";
+
+                    const dateLabel = isCreator
+                      ? st.worstCaseStr
+                      : st.teamStr || (showWorstCaseDate ? st.worstCaseStr : "");
+
+                    const statusShortLabel =
+                      st.taskStatus === "done"
+                        ? "Done"
+                        : st.taskStatus === "under_review"
+                        ? "Review"
+                        : st.taskStatus === "revision_needed"
+                        ? "Rev"
+                        : "Pending";
+
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        disabled={!isEditableIntermediate && !canTapIdeation && !st.isPublish}
+                        onClick={() => {
+                          if (isEditableIntermediate) {
+                            setMobileStageSheet({ rowId: row.id, task });
+                          } else if (canTapIdeation) {
+                            startEditing(row);
+                          } else if (st.isPublish && !st.isPublishDone && st.publishBlockedReason) {
+                            setValidationError(st.publishBlockedReason);
+                          }
+                        }}
+                        style={
+                          st.isCellColored && st.cellBg
+                            ? { backgroundColor: st.cellBg, borderColor: "rgba(0,0,0,0.2)" }
+                            : undefined
+                        }
+                        className={`shrink-0 min-w-[102px] p-2 rounded-xl border text-left flex flex-col justify-between gap-1 transition-all ${
+                          st.isCellColored
+                            ? "text-black shadow-2xs"
+                            : st.taskStatus === "under_review"
+                            ? "bg-status-review/15 border-status-review/35 text-foreground"
+                            : st.taskStatus === "revision_needed"
+                            ? "bg-status-revision/15 border-status-revision/35 text-foreground"
+                            : "bg-background/50 border-border text-foreground"
+                        } ${
+                          isEditableIntermediate || canTapIdeation
+                            ? "cursor-pointer active:scale-[0.98]"
+                            : "cursor-default"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 w-full">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold truncate">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0 border border-black/20"
+                              style={{ backgroundColor: stageColorHex }}
+                            />
+                            <span className="truncate">{task.task_name}</span>
+                          </span>
+                          {task.update_mode === "automatic" && (
+                            <Zap
+                              className={`w-2.5 h-2.5 shrink-0 ${
+                                st.isCellColored ? "text-black fill-black" : "text-amber-500 fill-amber-500"
+                              }`}
+                            />
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1 w-full text-[10px] font-mono">
+                          <span
+                            className={`px-1.5 py-0.2 rounded font-bold ${
+                              st.isCellColored
+                                ? "bg-black text-white"
+                                : st.taskStatus === "under_review"
+                                ? "text-status-review"
+                                : st.taskStatus === "revision_needed"
+                                ? "text-status-revision"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {isUpdating ? "..." : statusShortLabel}
+                          </span>
+                          {dateLabel && (
+                            <span className={st.isCellColored ? "font-semibold text-black/85" : "text-muted-foreground"}>
+                              {dateLabel}
+                            </span>
+                          )}
+                        </div>
+
+                        {renderDeadlineUrgencyBadge(st.urgencyTargetIso, st.taskStatus)}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Card Footer Action Bar */}
+                <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-border/50 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={isEmptyPlaceholder}
+                      onClick={() => setActiveMiscRow(row)}
+                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors ${
+                        isEmptyPlaceholder
+                          ? "opacity-35 cursor-not-allowed text-muted-foreground"
+                          : allMiscDone
+                          ? "bg-status-done/15 text-status-done border border-status-done/30 font-bold"
+                          : miscCompletedCount > 0
+                          ? "bg-primary/10 text-primary border border-primary/20 font-bold"
+                          : "glass-subtle text-muted-foreground"
+                      }`}
+                    >
+                      <CheckSquare className="w-3 h-3" />
+                      <span>Misc {miscTotalCount > 0 ? `(${miscCompletedCount}/${miscTotalCount})` : ""}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isEmptyPlaceholder}
+                      onClick={() => setActiveActionItemRow(row)}
+                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors ${
+                        isEmptyPlaceholder
+                          ? "opacity-35 cursor-not-allowed text-muted-foreground"
+                          : openActionsCount > 0
+                          ? "bg-primary/10 text-primary border border-primary/20 font-bold"
+                          : "glass-subtle text-muted-foreground"
+                      }`}
+                    >
+                      <ListTodo className="w-3 h-3" />
+                      <span>Actions{openActionsCount > 0 ? ` (${openActionsCount})` : ""}</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {isCreator || indexPermissions?.script_studio_access !== "none" ? (
+                      <Link
+                        href={row.unique_content_id ? `/scripts/${row.unique_content_id}` : "#"}
+                        className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold flex items-center gap-1 border border-border ${
+                          row.unique_content_id
+                            ? "bg-muted/80 text-foreground"
+                            : "opacity-30 pointer-events-none text-muted-foreground"
+                        }`}
+                      >
+                        <FileText className="w-3 h-3" />
+                        <span>Script</span>
+                      </Link>
+                    ) : null}
+
+                    <Link
+                      href={row.unique_content_id ? `/content/${row.unique_content_id}` : "#"}
+                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold flex items-center gap-1 border border-border ${
+                        row.unique_content_id
+                          ? "bg-muted/80 text-foreground"
+                          : "opacity-30 pointer-events-none text-muted-foreground"
+                      }`}
+                    >
+                      <Video className="w-3 h-3" />
+                      <span>Content</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Desktop & Mobile-Grid Matrix Table */}
+      <div className={mobileViewMode === "grid" ? "block overflow-x-auto" : "hidden md:block"}>
+        <table className="w-full min-w-max text-left border-separate border-spacing-0 text-xs">
           <thead>
             <tr className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-              <th className="sticky top-0 z-20 py-3 px-3 w-14 text-center bg-popover/95 backdrop-blur-md border-b border-border shadow-xs">
+              <th className="sticky top-0 z-20 py-3 px-2 md:px-3 w-12 md:w-14 text-center bg-popover/95 backdrop-blur-md border-b border-border shadow-xs">
                 Swap
               </th>
-              <th className="sticky top-0 z-20 py-3 px-3 w-28 bg-popover/95 backdrop-blur-md border-b border-border shadow-xs">
+              <th className="sticky top-0 z-20 py-3 px-2 md:px-3 w-20 md:w-28 bg-popover/95 backdrop-blur-md border-b border-border shadow-xs">
                 Content ID
               </th>
-              <th className="sticky top-0 z-20 py-3 px-4 min-w-[240px] bg-popover/95 backdrop-blur-md border-b border-border shadow-xs">
+              <th className="sticky top-0 z-20 py-3 px-3 md:px-4 min-w-[140px] md:min-w-[240px] bg-popover/95 backdrop-blur-md border-b border-border shadow-xs">
                 Video Title (Type to Register)
               </th>
 
@@ -633,7 +1206,7 @@ export function MatrixTable({
                   </td>
 
                   {/* Column 3: Video Title (Editable / Permissions Guarded) */}
-                  <td className="py-2.5 px-4">
+                  <td className="py-2.5 px-3 md:px-4 max-w-[165px] md:max-w-none">
                     {titleAccess === "none" ? (
                       <div className="py-1.5 px-2 text-muted-foreground/40 font-mono italic select-none">
                         ••••••••
@@ -734,114 +1307,28 @@ export function MatrixTable({
 
                   {/* Compute last done activity in the workflow sequence for this row */}
                   {(() => {
-                    let lastDoneIndex = -1;
-                    let lastDoneColorHex: string | null = null;
-                    for (let i = visibleWorkflowTasks.length - 1; i >= 0; i--) {
-                      const t = visibleWorkflowTasks[i];
-                      const tKey = t.task_name.toLowerCase();
-                      let isDone = false;
-                      if (tKey === "ideation") {
-                        isDone = Boolean(row.title && row.unique_content_id);
-                      } else if (tKey === "publish") {
-                        const prev = visibleWorkflowTasks.slice(0, i);
-                        const allPriorDone = prev.every((prior) => {
-                          const pk = prior.task_name.toLowerCase();
-                          if (pk === "ideation") return Boolean(row.title && row.unique_content_id);
-                          return row.task_instances.find((inst) => inst.task_name.toLowerCase() === pk)?.status === "done";
-                        });
-                        const pDate = new Date(row.publish_date);
-                        pDate.setHours(0, 0, 0, 0);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const pubPassed = today.getTime() >= pDate.getTime();
-                        isDone = allPriorDone && pubPassed;
-                      } else {
-                        isDone = row.task_instances.find((inst) => inst.task_name.toLowerCase() === tKey)?.status === "done";
-                      }
-                      if (isDone) {
-                        lastDoneIndex = i;
-                        lastDoneColorHex = resolveTaskColorHex(t.task_name, t.color);
-                        break;
-                      }
-                    }
+                    const { lastDoneIndex, lastDoneColorHex } = computeRowLastDone(row);
 
                     return visibleWorkflowTasks.map((task, colIndex) => {
-                      const taskKey = task.task_name.toLowerCase();
-                      const isIdeation = taskKey === "ideation";
-                      const isPublish = taskKey === "publish";
-                      const isCellColored = lastDoneIndex !== -1 && colIndex <= lastDoneIndex;
-                      const cellBg = isCellColored ? (lastDoneColorHex || undefined) : undefined;
-
-                      // Computed target dates
-                      const targetDates = row.task_target_dates?.[taskKey];
-                      const worstCaseStr = formatDateDisplay(targetDates?.worst_case);
-                      const teamStr = formatDateDisplay(targetDates?.team);
-
-                      // Task instance status
-                      const existingInstance = row.task_instances.find(
-                        (t) => t.task_name.toLowerCase() === taskKey
+                      const {
+                        taskKey,
+                        isIdeation,
+                        isPublish,
+                        isCellColored,
+                        cellBg,
+                        worstCaseStr,
+                        teamStr,
+                        isPublishDone,
+                        publishBlockedReason,
+                        taskStatus,
+                        urgencyTargetIso,
+                      } = evaluateStageState(
+                        row,
+                        task,
+                        colIndex,
+                        lastDoneIndex,
+                        lastDoneColorHex
                       );
-                      const isIdeationDone = Boolean(row.title && row.unique_content_id);
-
-                      // Automatic evaluation of fixed 'Publish' node:
-                      // a. All visible tasks prior to Publish are done
-                      // b. Publish target date has passed (Today >= Publish Date at day resolution)
-                      let isPublishDone = false;
-                      let publishBlockedReason = "";
-                      if (isPublish) {
-                        const previousTasks = visibleWorkflowTasks.slice(0, colIndex);
-                        let allPriorDone = true;
-                        const missingTasks: string[] = [];
-                        for (const prior of previousTasks) {
-                          const pk = prior.task_name.toLowerCase();
-                          if (pk === "ideation") {
-                            if (!row.title || !row.unique_content_id) {
-                              allPriorDone = false;
-                              missingTasks.push("Ideation");
-                            }
-                          } else {
-                            const inst = row.task_instances.find((ti) => ti.task_name.toLowerCase() === pk);
-                            if (inst?.status !== "done") {
-                              allPriorDone = false;
-                              missingTasks.push(prior.task_name);
-                            }
-                          }
-                        }
-
-                        const pDate = new Date(row.publish_date);
-                        pDate.setHours(0, 0, 0, 0);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const publishDatePassed = today.getTime() >= pDate.getTime();
-
-                        isPublishDone = allPriorDone && publishDatePassed;
-
-                        if (!isPublishDone) {
-                          if (!allPriorDone && !publishDatePassed) {
-                            publishBlockedReason = `Waiting on: ${missingTasks.join(", ")} & Publish Date (${formatDateDisplay(row.publish_date)})`;
-                          } else if (!allPriorDone) {
-                            publishBlockedReason = `Waiting on: ${missingTasks.join(", ")}`;
-                          } else {
-                            publishBlockedReason = `All tasks complete! Awaiting Publish Date (${formatDateDisplay(row.publish_date)})`;
-                          }
-                        }
-                      }
-
-                      const taskStatus: TaskStatus = isIdeation
-                        ? isIdeationDone
-                          ? "done"
-                          : "not_done"
-                        : isPublish
-                        ? isPublishDone
-                          ? "done"
-                          : "not_done"
-                        : existingInstance?.status || "not_done";
-
-                      const urgencyTargetIso = isPublish
-                        ? targetDates?.worst_case || row.publish_date
-                        : isCreator
-                        ? targetDates?.worst_case
-                        : targetDates?.team || targetDates?.worst_case;
 
                       const menuKey = `${row.id}_${task.task_name}`;
                       const isMenuOpen = activeStatusMenuKey === menuKey;
@@ -1336,16 +1823,192 @@ export function MatrixTable({
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* Mobile 1-Tap Stage Status Bottom Sheet (< md)                 */}
+      {/* ------------------------------------------------------------- */}
+      {mobileStageSheet && (() => {
+        const sheetRow = rows.find((r) => r.id === mobileStageSheet.rowId);
+        if (!sheetRow) return null;
+        const { task } = mobileStageSheet;
+        const taskKey = task.task_name.toLowerCase();
+        const targetDates = sheetRow.task_target_dates?.[taskKey];
+        const worstCaseStr = formatDateDisplay(targetDates?.worst_case);
+        const teamStr = formatDateDisplay(targetDates?.team);
+        const existingInstance = sheetRow.task_instances.find(
+          (t) => t.task_name.toLowerCase() === taskKey
+        );
+        const currentStatus: TaskStatus = existingInstance?.status || "not_done";
+        const stageColorHex = resolveTaskColorHex(task.task_name, task.color);
+        const isScriptStage =
+          taskKey.includes("script") || task.automation_trigger === "script_studio";
+        const canAccessScript =
+          isCreator || indexPermissions?.script_studio_access !== "none";
+
+        const statusOptions: {
+          status: TaskStatus;
+          label: string;
+          dotClass: string;
+          dotStyle?: React.CSSProperties;
+        }[] = [
+          {
+            status: "not_done",
+            label: "Pending / Not Done",
+            dotClass: "bg-border",
+          },
+          {
+            status: "under_review",
+            label: "Under Review",
+            dotClass: "",
+            dotStyle: { backgroundColor: "var(--status-review)" },
+          },
+          {
+            status: "revision_needed",
+            label: "Revision Needed",
+            dotClass: "",
+            dotStyle: { backgroundColor: "var(--status-revision)" },
+          },
+          {
+            status: "done",
+            label: "Done",
+            dotClass: "",
+            dotStyle: { backgroundColor: "var(--status-done)" },
+          },
+        ];
+
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setMobileStageSheet(null);
+            }}
+          >
+            <div className="glass-floating mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-4 sm:p-5 space-y-4 border border-border shadow-2xl max-h-[90dvh] overflow-y-auto">
+              <div className="sm:hidden mobile-sheet-handle -mt-1" />
+
+              {/* Header */}
+              <div className="flex items-start justify-between gap-2 pb-3 border-b border-border">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary/15 text-primary border border-primary/25">
+                      {sheetRow.unique_content_id || "Slot"}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-muted/70 border border-border text-foreground">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: stageColorHex }}
+                      />
+                      <span>{task.task_name}</span>
+                      {task.update_mode === "automatic" && (
+                        <Zap className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                      )}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-sm text-foreground line-clamp-2 leading-snug">
+                    {sheetRow.title || "Untitled Slot"}
+                  </h4>
+                  <div className="flex items-center gap-3 text-[11px] font-mono text-muted-foreground flex-wrap">
+                    {showWorstCaseDate && worstCaseStr && (
+                      <span>
+                        Worst-case: <strong className="text-foreground">{worstCaseStr}</strong>
+                      </span>
+                    )}
+                    {teamStr && (
+                      <span>
+                        Team: <strong className="text-foreground">{teamStr}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMobileStageSheet(null)}
+                  className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 cursor-pointer shrink-0"
+                  aria-label="Close stage picker"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 48px-class Status Touch Buttons */}
+              <div className="space-y-2">
+                {statusOptions.map((opt) => {
+                  const isCurrent = currentStatus === opt.status;
+                  return (
+                    <button
+                      key={opt.status}
+                      type="button"
+                      onClick={() => {
+                        setMobileStageSheet(null);
+                        onInitiateTaskStatusChange(sheetRow, task, opt.status);
+                      }}
+                      className={`w-full min-h-[46px] px-3.5 rounded-xl border flex items-center justify-between text-xs font-semibold transition-all cursor-pointer ${
+                        isCurrent
+                          ? "bg-primary/15 border-primary text-foreground shadow-xs"
+                          : "glass-subtle border-border hover:bg-muted/60 text-foreground"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${opt.dotClass}`}
+                          style={opt.dotStyle}
+                        />
+                        <span>{opt.label}</span>
+                      </span>
+                      {isCurrent && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-primary">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Current</span>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Quick 1-Tap Workspace Shortcut */}
+              {sheetRow.unique_content_id && (
+                <div className="pt-2 border-t border-border/60 flex items-center gap-2">
+                  {isScriptStage && canAccessScript ? (
+                    <Link
+                      href={`/scripts/${sheetRow.unique_content_id}`}
+                      onClick={() => setMobileStageSheet(null)}
+                      className="w-full min-h-[44px] px-3.5 rounded-xl bg-muted hover:bg-muted/80 border border-border text-xs font-semibold text-foreground flex items-center justify-center gap-2"
+                    >
+                      <FileText className="w-4 h-4 text-primary" />
+                      <span>Open Script Studio</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/content/${sheetRow.unique_content_id}`}
+                      onClick={() => setMobileStageSheet(null)}
+                      className="w-full min-h-[44px] px-3.5 rounded-xl bg-muted hover:bg-muted/80 border border-border text-xs font-semibold text-foreground flex items-center justify-center gap-2"
+                    >
+                      <Video className="w-4 h-4 text-primary" />
+                      <span>Open Content Hub</span>
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ------------------------------------------------------------- */}
       {/* Misc Tasks Popover Modal                                      */}
       {/* ------------------------------------------------------------- */}
       {activeMiscRow && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div
-            className="card-theme w-full max-w-sm p-5 shadow-2xl space-y-4"
-            style={{ borderRadius: "var(--radius)" }}
-          >
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveMiscRow(null);
+          }}
+        >
+          <div className="card-theme mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm p-5 shadow-2xl space-y-4 max-h-[90dvh] overflow-y-auto">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-2">
                 <CheckSquare className="w-4 h-4 text-primary" />
@@ -1441,21 +2104,26 @@ export function MatrixTable({
       {/* ------------------------------------------------------------- */}
       {/* Custom Action Items Modal / Flyout                            */}
       {/* ------------------------------------------------------------- */}
-      {activeActionItemRow && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div
-            className="card-theme w-full max-w-md p-5 shadow-2xl space-y-4"
-            style={{ borderRadius: "var(--radius)" }}
-          >
+      {activeActionItemRow && (() => {
+        const liveActionRow = rows.find((r) => r.id === activeActionItemRow.id) || activeActionItemRow;
+        return (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveActionItemRow(null);
+          }}
+        >
+          <div className="card-theme mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-5 shadow-2xl space-y-4 max-h-[90dvh] overflow-y-auto">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-2">
                 <ListTodo className="w-4 h-4 text-primary" />
                 <div>
                   <h4 className="font-bold text-xs">
-                    Action Items: {activeActionItemRow.unique_content_id || "Video"}
+                    Action Items: {liveActionRow.unique_content_id || "Video"}
                   </h4>
                   <p className="text-[10px] text-muted-foreground truncate max-w-xs">
-                    {activeActionItemRow.title}
+                    {liveActionRow.title}
                   </p>
                 </div>
               </div>
@@ -1470,22 +2138,22 @@ export function MatrixTable({
 
             {/* Existing Checklist */}
             <div className="space-y-1.5 max-h-60 overflow-y-auto">
-              {activeActionItemRow.custom_action_items.length === 0 ? (
+              {liveActionRow.custom_action_items.length === 0 ? (
                 <div className="text-center py-4 text-muted-foreground text-xs font-mono">
                   No action items registered yet.
                 </div>
               ) : (
-                activeActionItemRow.custom_action_items.map((item) => (
+                liveActionRow.custom_action_items.map((item) => (
                   <div
                     key={item.id}
-                    onClick={() => onToggleActionItem(activeActionItemRow.id, item.id)}
-                    className="p-2 rounded flex items-center gap-2.5 hover:bg-muted/40 cursor-pointer border border-border/50 text-xs"
+                    onClick={() => onToggleActionItem(liveActionRow.id, item.id)}
+                    className="p-2.5 sm:p-2 rounded-xl flex items-center gap-2.5 hover:bg-muted/40 cursor-pointer border border-border/50 text-xs"
                   >
                     <input
                       type="checkbox"
                       checked={item.is_closed}
                       readOnly
-                      className="accent-primary"
+                      className="accent-primary w-4 h-4"
                     />
                     <span className={item.is_closed ? "line-through text-muted-foreground" : "font-medium"}>
                       {item.text}
@@ -1502,17 +2170,15 @@ export function MatrixTable({
                 value={newActionItemText}
                 onChange={(e) => setNewActionItemText(e.target.value)}
                 onKeyDown={(e) =>
-                  e.key === "Enter" && (e.preventDefault(), handleCreateActionItem(activeActionItemRow))
+                  e.key === "Enter" && (e.preventDefault(), handleCreateActionItem(liveActionRow))
                 }
                 placeholder="e.g. End Screen ID: 260201..."
-                className="flex-1 h-8 px-2.5 text-xs rounded bg-background border border-border focus:outline-none focus:border-primary"
-                style={{ borderRadius: "var(--radius)" }}
+                className="flex-1 h-9 sm:h-8 px-2.5 text-base sm:text-xs rounded-xl bg-background border border-border focus:outline-none focus:border-primary"
               />
               <button
                 type="button"
-                onClick={() => handleCreateActionItem(activeActionItemRow)}
-                className="px-3 py-1.5 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1"
-                style={{ borderRadius: "var(--radius)" }}
+                onClick={() => handleCreateActionItem(liveActionRow)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add</span>
@@ -1520,17 +2186,16 @@ export function MatrixTable({
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ------------------------------------------------------------- */}
       {/* Remove Placeholder & Drive Content Confirmation Modal          */}
       {/* ------------------------------------------------------------- */}
       {confirmDeleteRow && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div
-            className="card-theme w-full max-w-md p-6 shadow-2xl space-y-4 border border-destructive/40"
-            style={{ borderRadius: "var(--radius)" }}
-          >
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="card-theme mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-5 sm:p-6 shadow-2xl space-y-4 border border-destructive/40 max-h-[90dvh] overflow-y-auto">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center gap-3 pb-3 border-b border-border">
               <div className="w-9 h-9 rounded-full bg-destructive/15 text-destructive flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-5 h-5" />
@@ -1602,11 +2267,9 @@ export function MatrixTable({
       {/* Automation: Manual Override Double Confirmation Modal          */}
       {/* ------------------------------------------------------------- */}
       {overrideConfirmModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div
-            className="card-theme w-full max-w-md p-6 shadow-2xl space-y-4 border border-amber-500/40"
-            style={{ borderRadius: "var(--radius)" }}
-          >
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="card-theme mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-5 sm:p-6 shadow-2xl space-y-4 border border-amber-500/40 max-h-[90dvh] overflow-y-auto">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center gap-3 pb-3 border-b border-border">
               <div className="w-9 h-9 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-5 h-5" />
@@ -1673,11 +2336,9 @@ export function MatrixTable({
       {/* Closure Link Required Modal (Marking Done)                    */}
       {/* ------------------------------------------------------------- */}
       {closureLinkModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div
-            className="card-theme w-full max-w-md p-6 shadow-2xl space-y-4 border border-primary/40"
-            style={{ borderRadius: "var(--radius)" }}
-          >
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="card-theme mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-5 sm:p-6 shadow-2xl space-y-4 border border-primary/40 max-h-[90dvh] overflow-y-auto">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center gap-3 pb-3 border-b border-border">
               <div className="w-9 h-9 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
                 <Link2 className="w-5 h-5" />
@@ -1723,8 +2384,7 @@ export function MatrixTable({
                     if (e.key === "Escape") setClosureLinkModal(null);
                   }}
                   placeholder="https://www.youtube.com/watch?v=..."
-                  className="w-full h-9 px-3 text-xs rounded bg-background border border-border focus:border-primary focus:outline-none transition-colors"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-10 sm:h-9 px-3 text-base sm:text-xs rounded-xl bg-background border border-border focus:border-primary focus:outline-none transition-colors"
                 />
                 {closureUrlError && (
                   <p className="text-[11px] text-destructive flex items-center gap-1 mt-1">
@@ -1763,11 +2423,9 @@ export function MatrixTable({
       {/* Edit Content Link Modal (From Badge or Workspace Link)         */}
       {/* ------------------------------------------------------------- */}
       {editLinkModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div
-            className="card-theme w-full max-w-md p-6 shadow-2xl space-y-4 border border-border"
-            style={{ borderRadius: "var(--radius)" }}
-          >
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="card-theme mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md p-5 sm:p-6 shadow-2xl space-y-4 border border-border max-h-[90dvh] overflow-y-auto">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center gap-3 pb-3 border-b border-border">
               <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0 text-foreground">
                 <Edit3 className="w-4 h-4" />
@@ -1807,8 +2465,7 @@ export function MatrixTable({
                     if (e.key === "Escape") setEditLinkModal(null);
                   }}
                   placeholder="https://www.youtube.com/watch?v=..."
-                  className="w-full h-9 px-3 text-xs rounded bg-background border border-border focus:border-primary focus:outline-none transition-colors"
-                  style={{ borderRadius: "var(--radius)" }}
+                  className="w-full h-10 sm:h-9 px-3 text-base sm:text-xs rounded-xl bg-background border border-border focus:border-primary focus:outline-none transition-colors"
                 />
               </div>
             </div>

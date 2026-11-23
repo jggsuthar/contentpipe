@@ -71,6 +71,14 @@ function formatDate(iso: string | null): string {
   });
 }
 
+function getFocusActionLabel(row: AttentionRegisterRow): string {
+  if (row.reviewInfo) return `Review ${row.reviewInfo.version}`;
+  if (row.isArchiveEligible) return "Archive";
+  if (row.currentStage.toLowerCase().includes("script")) return "Script";
+  if (row.workspaceUrl.startsWith("/content/")) return "Content";
+  return "Tracker";
+}
+
 export function FocusRadarTable({
   rows,
   openSlots,
@@ -145,7 +153,7 @@ export function FocusRadarTable({
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto no-scrollbar md:flex-wrap pb-0.5 md:pb-0">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
@@ -153,7 +161,7 @@ export function FocusRadarTable({
                 key={tab.key}
                 type="button"
                 onClick={() => onSelectTab(tab.key)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 md:py-1 rounded-full text-[11px] font-mono font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0 ${
                   isActive
                     ? "bg-primary text-primary-foreground shadow-xs"
                     : "glass-subtle text-muted-foreground hover:text-foreground"
@@ -189,28 +197,205 @@ export function FocusRadarTable({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border/60 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                <th className="py-2 pr-3 font-semibold">Content</th>
-                <th className="py-2 px-3 font-semibold whitespace-nowrap">Publish Date</th>
-                <th className="py-2 px-3 font-semibold">Current Stage</th>
-                <th className="py-2 px-3 font-semibold whitespace-nowrap">Timing</th>
-                <th className="py-2 pl-3 text-right font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40 text-xs">
-              {displayedVideos.map((row) => {
-                const actionLabel = row.reviewInfo
-                  ? `Review ${row.reviewInfo.version}`
-                  : row.isArchiveEligible
-                  ? "Archive"
-                  : row.currentStage.toLowerCase().includes("script")
-                  ? "Script"
-                  : row.workspaceUrl.startsWith("/content/")
-                  ? "Content"
-                  : "Tracker";
+        <>
+          {/* Mobile Focus Cards (< md) */}
+          <div className="md:hidden space-y-2.5">
+            {displayedVideos.map((row) => {
+              const actionLabel = getFocusActionLabel(row);
+              return (
+                <div
+                  key={row.id}
+                  className={`p-3.5 rounded-xl glass-subtle border space-y-2.5 ${
+                    row.urgency === "delayed"
+                      ? "border-red-500/35"
+                      : row.reviewInfo
+                      ? "border-status-review/40"
+                      : "border-border/80"
+                  }`}
+                >
+                  {/* Line 1: Content ID + Brand • Series + Stage Urgency */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary/15 text-primary border border-primary/25 shrink-0">
+                        {row.uniqueContentId || "Slot"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground min-w-0 truncate">
+                        {row.brandName && (
+                          <>
+                            <span
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: row.brandColor || "#6366f1" }}
+                            />
+                            <span className="truncate">{row.brandName}</span>
+                            <span className="shrink-0">•</span>
+                          </>
+                        )}
+                        <span className="truncate">{row.seriesName}</span>
+                      </span>
+                    </div>
+
+                    <UrgencyBadge
+                      urgency={row.urgency}
+                      delayDays={row.delayDays}
+                      daysUntilDue={row.daysUntilDue}
+                      isPublishReady={row.isPublishReady}
+                    />
+                  </div>
+
+                  {/* Line 2: Readable Video Title */}
+                  <Link
+                    href={row.indexUrl}
+                    className="block text-sm font-semibold text-foreground hover:text-primary transition-colors leading-snug line-clamp-2"
+                  >
+                    {row.title}
+                  </Link>
+
+                  {/* Line 3: Stage, Publish Date & 1-Tap Primary Action */}
+                  <div className="flex items-end justify-between gap-2.5 pt-2 border-t border-border/50">
+                    <div className="min-w-0 space-y-1 text-[11px] font-mono">
+                      <div className="flex items-center gap-1.5 flex-wrap text-muted-foreground">
+                        <span>
+                          Stage: <strong className="text-foreground">{row.currentStage}</strong>
+                        </span>
+                        {row.stageTargetDate && !row.isArchiveEligible && (
+                          <span>• Target: {formatDate(row.stageTargetDate)}</span>
+                        )}
+                      </div>
+
+                      {(row.reviewInfo || row.stageStatus === "revision_needed" || row.isArchiveEligible) && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {row.reviewInfo && (
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-status-review/20 text-status-review border border-status-review/30">
+                              Review • {row.reviewInfo.submitterName}
+                            </span>
+                          )}
+                          {row.stageStatus === "revision_needed" && (
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-status-revision/20 text-status-revision border border-status-revision/30">
+                              Revision Needed
+                            </span>
+                          )}
+                          {row.isArchiveEligible && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              <Archive className="w-2.5 h-2.5" />
+                              Ready to Archive
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1.5 flex-wrap text-muted-foreground">
+                        <span>
+                          Publish: <strong className="text-foreground/90">{formatDate(row.publishDate)}</strong>
+                        </span>
+                        {(row.publishUrgency === "delayed" || row.publishUrgency === "near") && (
+                          <UrgencyBadge
+                            urgency={row.publishUrgency}
+                            delayDays={row.publishDelayDays}
+                            daysUntilDue={row.publishDaysUntilDue}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <Link
+                      href={row.isArchiveEligible ? row.indexUrl : row.workspaceUrl}
+                      className={`shrink-0 inline-flex items-center justify-center gap-1 px-3 min-h-[38px] rounded-xl text-xs font-semibold transition-all ${
+                        row.reviewInfo
+                          ? "bg-primary text-primary-foreground hover:opacity-90 shadow-xs"
+                          : "glass-subtle border border-border hover:bg-primary hover:text-primary-foreground text-foreground"
+                      }`}
+                    >
+                      {row.reviewInfo && <Sparkles className="w-3 h-3" />}
+                      <span>{actionLabel}</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+
+            {displayedOpenSlots.map((slot) => (
+              <div
+                key={slot.id}
+                className="p-3.5 rounded-xl glass-subtle border border-dashed border-amber-500/40 bg-amber-500/[0.04] space-y-2.5"
+              >
+                {/* Line 1: Open Slot + Brand • Series + Urgency */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border border-dashed border-amber-500/50 text-amber-400 bg-amber-500/10 shrink-0">
+                      Open Slot
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground min-w-0 truncate">
+                      {slot.brandName && (
+                        <>
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: slot.brandColor || "#6366f1" }}
+                          />
+                          <span className="truncate">{slot.brandName}</span>
+                          <span className="shrink-0">•</span>
+                        </>
+                      )}
+                      <span className="truncate">{slot.seriesName}</span>
+                    </span>
+                  </div>
+
+                  <UrgencyBadge
+                    urgency={slot.urgency}
+                    delayDays={slot.delayDays}
+                    daysUntilDue={slot.daysUntilDue}
+                  />
+                </div>
+
+                {/* Line 2: Placeholder Title */}
+                <Link
+                  href={slot.indexUrl}
+                  className="block text-sm font-semibold italic text-muted-foreground hover:text-primary transition-colors leading-snug"
+                >
+                  No video title or idea assigned yet
+                </Link>
+
+                {/* Line 3: Ideation Target, Publish Date & Assign Idea CTA */}
+                <div className="flex items-end justify-between gap-2.5 pt-2 border-t border-border/50">
+                  <div className="min-w-0 space-y-1 text-[11px] font-mono text-muted-foreground">
+                    <div>
+                      Stage: <strong className="text-amber-400">Ideation Needed</strong>
+                      {slot.ideationTargetDate && (
+                        <span> • Target: {formatDate(slot.ideationTargetDate)}</span>
+                      )}
+                    </div>
+                    <div>
+                      Publish: <strong className="text-foreground/90">{formatDate(slot.publishDate)}</strong>
+                    </div>
+                  </div>
+
+                  <Link
+                    href={slot.indexUrl}
+                    className="shrink-0 inline-flex items-center justify-center gap-1 px-3 min-h-[38px] rounded-xl text-xs font-semibold glass-subtle border border-border hover:bg-primary hover:text-primary-foreground text-foreground transition-all"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Assign Idea</span>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table (md+) */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-border/60 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  <th className="py-2 pr-3 font-semibold">Content</th>
+                  <th className="py-2 px-3 font-semibold whitespace-nowrap">Publish Date</th>
+                  <th className="py-2 px-3 font-semibold">Current Stage</th>
+                  <th className="py-2 px-3 font-semibold whitespace-nowrap">Timing</th>
+                  <th className="py-2 pl-3 text-right font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40 text-xs">
+                {displayedVideos.map((row) => {
+                  const actionLabel = getFocusActionLabel(row);
 
                 return (
                   <tr
@@ -383,9 +568,10 @@ export function FocusRadarTable({
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </section>
   );

@@ -46,15 +46,15 @@ export function ActionItemsWidget({
   const currentList = showClosed ? closedItems : openItems;
 
   return (
-    <div className="card-theme p-6 rounded-2xl space-y-5">
+    <div className="card-theme p-4 sm:p-6 rounded-2xl space-y-4 sm:space-y-5">
       {/* Header & Toggle */}
-      <div className="flex items-center justify-between pb-3 border-b border-border/70">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center font-bold border border-primary/25">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-border/70">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center font-bold border border-primary/25 shrink-0">
             <ListTodo className="w-4 h-4" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-bold text-sm">Action Items</h3>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-primary text-primary-foreground">
                 {openItems.length} Open
@@ -70,7 +70,7 @@ export function ActionItemsWidget({
         <button
           type="button"
           onClick={() => setShowClosed(!showClosed)}
-          className={`px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold transition-all duration-250 cursor-pointer ${
+          className={`px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold transition-all duration-250 cursor-pointer shrink-0 ${
             showClosed
               ? "bg-primary text-primary-foreground shadow-xs"
               : "glass-subtle hover:bg-muted/60 text-foreground"

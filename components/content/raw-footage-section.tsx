@@ -448,7 +448,7 @@ export function RawFootageSection({
 
   return (
     <div
-      className={`card-theme p-5 rounded-2xl space-y-4 relative transition-all duration-250 ${
+      className={`card-theme p-3.5 sm:p-5 rounded-2xl space-y-3.5 sm:space-y-4 relative transition-all duration-250 ${
         isDragging ? "ring-2 ring-primary ring-offset-2 bg-primary/5" : ""
       }`}
       onDragOver={(e) => {
@@ -531,7 +531,7 @@ export function RawFootageSection({
         </div>
 
         {/* Right: Actions Bar */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar sm:flex-wrap">
           {/* Declare / Undeclare Button */}
           {canUploadRaw && (
             rawFootageUploaded ? (
@@ -539,7 +539,7 @@ export function RawFootageSection({
                 type="button"
                 onClick={handleToggleDeclared}
                 disabled={isTogglingDeclared}
-                className="px-2.5 py-1 rounded text-[11px] font-mono bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-border flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="min-h-[36px] sm:min-h-0 px-2.5 py-1 rounded-xl sm:rounded text-[11px] font-mono bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                 title="Revert raw footage declaration back to pending"
               >
                 {isTogglingDeclared ? (
@@ -554,8 +554,7 @@ export function RawFootageSection({
                 type="button"
                 onClick={handleToggleDeclared}
                 disabled={isTogglingDeclared}
-                className="px-3 py-1 rounded text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                style={{ borderRadius: "var(--radius)" }}
+                className="min-h-[36px] sm:min-h-0 px-3 py-1 rounded-xl sm:rounded text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
                 title="Declare that all raw footages have been uploaded"
               >
                 {isTogglingDeclared ? (
@@ -573,7 +572,7 @@ export function RawFootageSection({
             type="button"
             onClick={() => loadFolderContents(activeFolderId || rootFolderId, true)}
             disabled={syncing || loading}
-            className="p-1.5 rounded text-xs font-mono bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border flex items-center gap-1 transition-colors cursor-pointer"
+            className="min-h-[36px] sm:min-h-0 p-1.5 px-2.5 rounded-xl sm:rounded text-xs font-mono bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border flex items-center gap-1 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
             title="Refresh & sync files from Google Drive"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin text-primary" : ""}`} />
@@ -585,8 +584,7 @@ export function RawFootageSection({
             <button
               type="button"
               onClick={() => setFolderModalOpen(true)}
-              className="px-2.5 py-1 rounded text-xs font-medium bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 cursor-pointer transition-colors"
-              style={{ borderRadius: "var(--radius)" }}
+              className="min-h-[36px] sm:min-h-0 px-2.5 py-1 rounded-xl sm:rounded text-xs font-medium bg-muted hover:bg-muted/80 text-foreground border border-border flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 whitespace-nowrap"
               title="Create a new subfolder in Google Drive"
             >
               <FolderPlus className="w-3.5 h-3.5 text-amber-500" />
@@ -600,8 +598,7 @@ export function RawFootageSection({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={Boolean(uploadProgress)}
-              className="px-3 py-1 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-              style={{ borderRadius: "var(--radius)" }}
+              className="min-h-[36px] sm:min-h-0 px-3 py-1 rounded-xl sm:rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0 whitespace-nowrap"
               title="Upload files to this Drive folder"
             >
               <UploadCloud className="w-3.5 h-3.5" />
@@ -615,7 +612,7 @@ export function RawFootageSection({
               href={`https://drive.google.com/drive/folders/${activeFolderId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-2.5 py-1 rounded text-[11px] font-mono bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border flex items-center gap-1 transition-colors"
+              className="min-h-[36px] sm:min-h-0 px-2.5 py-1 rounded-xl sm:rounded text-[11px] font-mono bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border flex items-center gap-1 transition-colors shrink-0 whitespace-nowrap"
               title="Open current directory in Google Drive"
             >
               <Folder className="w-3 h-3 text-amber-500" />
@@ -663,7 +660,7 @@ export function RawFootageSection({
         </div>
 
         {/* Quick Folder Switchers */}
-        <div className="flex items-center gap-1.5 shrink-0 text-[11px]">
+        <div className="flex items-center gap-1.5 shrink-0 text-[11px] overflow-x-auto no-scrollbar">
           {driveFolders.main_folder_id && (
             <button
               type="button"
@@ -895,8 +892,14 @@ export function RawFootageSection({
 
       {/* New Folder Modal */}
       {folderModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-floating rounded-2xl w-full max-w-sm p-6 space-y-4">
+        <div
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isCreatingFolder) setFolderModalOpen(false);
+          }}
+        >
+          <div className="glass-floating mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm p-5 sm:p-6 space-y-4">
+            <div className="sm:hidden mobile-sheet-handle -mt-1" />
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-2">
                 <FolderPlus className="w-4 h-4 text-amber-500" />
@@ -923,7 +926,7 @@ export function RawFootageSection({
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
                   placeholder="e.g. Day 01 - A Roll, B-Roll, Drone..."
-                  className="w-full h-9 px-3 rounded-xl glass-input text-xs"
+                  className="w-full h-10 sm:h-9 px-3 rounded-xl glass-input text-base sm:text-xs"
                 />
               </div>
 

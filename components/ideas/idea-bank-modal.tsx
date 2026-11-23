@@ -493,7 +493,7 @@ export function IdeaBankModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
+      className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -504,9 +504,11 @@ export function IdeaBankModal({
         ))}
       </datalist>
 
-      <div className="glass-modal rounded-2xl w-[95vw] max-w-[1440px] h-[86vh] flex flex-col overflow-hidden border border-border shadow-2xl">
+      <div className="glass-modal mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:w-[95vw] max-w-[1440px] h-[90dvh] sm:h-[86vh] flex flex-col overflow-hidden border border-border shadow-2xl">
+        <div className="sm:hidden mobile-sheet-handle mt-2.5 mb-0.5" />
+
         {/* 1. Modal Header */}
-        <div className="px-5 py-3.5 border-b border-border flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="px-3.5 sm:px-5 py-3 sm:py-3.5 border-b border-border flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-500 flex items-center justify-center">
               <Lightbulb className="w-4 h-4" />
@@ -590,7 +592,7 @@ export function IdeaBankModal({
         {isAdding && (
           <form
             onSubmit={handleCreateQuickIdea}
-            className="px-5 py-3.5 border-b border-border bg-muted/30 space-y-3 shrink-0"
+            className="px-3.5 sm:px-5 py-3.5 border-b border-border bg-muted/30 space-y-3 shrink-0"
           >
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
               <div className="md:col-span-5 space-y-1">
@@ -604,7 +606,7 @@ export function IdeaBankModal({
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Working title or hook..."
-                  className="w-full h-9 px-3 text-xs glass-input"
+                  className="w-full h-9 px-3 text-base sm:text-xs glass-input"
                 />
               </div>
 
@@ -626,7 +628,7 @@ export function IdeaBankModal({
                     }
                   }}
                   placeholder="Why this video works, hook idea, key beats..."
-                  className="w-full px-3 py-2 text-xs glass-input resize-y min-h-[38px]"
+                  className="w-full px-3 py-2 text-base sm:text-xs glass-input resize-y min-h-[38px]"
                 />
               </div>
             </div>
@@ -747,15 +749,15 @@ export function IdeaBankModal({
         )}
 
         {/* 2. Full-Column Filter & Search Toolbar */}
-        <div className="px-5 py-2.5 border-b border-border bg-muted/20 flex flex-wrap items-center gap-2 shrink-0">
-          <div className="relative flex-1 min-w-[210px] max-w-sm">
+        <div className="px-3.5 sm:px-5 py-2.5 border-b border-border bg-muted/20 flex flex-wrap items-center gap-2 shrink-0">
+          <div className="relative flex-1 min-w-[180px] sm:min-w-[210px] max-w-sm">
             <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search ID, title, excerpt, or status..."
-              className="w-full h-8 pl-8 pr-7 text-xs glass-input"
+              className="w-full h-9 sm:h-8 pl-8 pr-7 text-base sm:text-xs glass-input"
             />
             {searchQuery && (
               <button
@@ -1265,12 +1267,13 @@ export function IdeaBankModal({
       {/* Delete Confirmation Sub-Modal */}
       {confirmDeleteIdea && (
         <div
-          className="fixed inset-0 z-60 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-60 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setConfirmDeleteIdea(null);
           }}
         >
-          <div className="glass-floating rounded-2xl w-full max-w-sm p-5 space-y-4 border border-border shadow-2xl">
+          <div className="glass-floating mobile-bottom-sheet rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm p-5 space-y-4 border border-border shadow-2xl">
+            <div className="sm:hidden mobile-sheet-handle -mt-1 mb-2" />
             <div className="flex items-center gap-2 text-rose-500">
               <AlertTriangle className="w-4 h-4" />
               <h4 className="font-bold text-xs">Delete Idea Permanently?</h4>

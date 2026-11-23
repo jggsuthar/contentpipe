@@ -199,12 +199,12 @@ export function VideoReviewPlayer({
   const isImage = activeSubmission.file_type === "image";
 
   return (
-    <div className="card-theme p-5 rounded-2xl space-y-4">
+    <div className="card-theme p-3.5 sm:p-5 rounded-2xl space-y-4">
       {/* 1. Top Version Selector Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pb-3 border-b border-border">
         {/* Version Tabs: [V1], [V2], [V3] */}
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          <span className="text-[11px] font-mono text-muted-foreground mr-1">Iterations:</span>
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <span className="text-[11px] font-mono text-muted-foreground mr-1 shrink-0">Iterations:</span>
           {submissions.map((sub) => {
             const isSelected = sub.id === activeSubmission.id;
             return (
@@ -215,12 +215,11 @@ export function VideoReviewPlayer({
                   setSelectedSubId(sub.id);
                   setActivePin(null);
                 }}
-                className={`px-3 py-1 rounded text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                className={`min-h-[34px] px-3 py-1 rounded-xl sm:rounded text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${
                   isSelected
                     ? "bg-primary text-primary-foreground border-primary shadow-xs"
                     : "bg-muted hover:bg-muted/80 text-foreground border-border"
                 }`}
-                style={{ borderRadius: "var(--radius)" }}
               >
                 <span>{sub.version}</span>
                 <span
@@ -241,13 +240,13 @@ export function VideoReviewPlayer({
         </div>
 
         {/* Right Tools: Submit Next Iteration + Drive Link */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {driveFolders.submissions_url && (
             <a
               href={driveFolders.submissions_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-2.5 py-1 rounded text-[11px] font-mono bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border flex items-center gap-1"
+              className="min-h-[36px] sm:min-h-0 px-2.5 py-1 rounded-xl sm:rounded text-[11px] font-mono bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border flex items-center gap-1 shrink-0"
               title="Open Project Folder in Google Drive"
             >
               <FolderSync className="w-3 h-3 text-primary" />
@@ -260,8 +259,7 @@ export function VideoReviewPlayer({
             <button
               type="button"
               onClick={onOpenSubmitModal}
-              className="px-3 py-1 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 cursor-pointer shadow-xs"
-              style={{ borderRadius: "var(--radius)" }}
+              className="min-h-[36px] sm:min-h-0 px-3 py-1 rounded-xl sm:rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Submit New Iteration</span>
@@ -271,19 +269,19 @@ export function VideoReviewPlayer({
       </div>
 
       {/* 2. Main Player & Review Canvas + Feedback Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
         {/* Left Column: Media Player / Review Canvas (7 cols) */}
         <div className="lg:col-span-7 space-y-3">
-          {/* Active Version Meta & Approval Controls */}
-          <div className="flex items-center justify-between gap-2 p-2 rounded bg-muted/30 border border-border text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-bold font-mono text-primary text-sm">
+          {/* Active Version Meta & Desktop Approval Controls */}
+          <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-muted/30 border border-border text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold font-mono text-primary text-sm shrink-0">
                 {activeSubmission.version}
               </span>
-              <span className="text-muted-foreground">•</span>
-              <span className="font-medium truncate max-w-xs">{activeSubmission.file_name}</span>
+              <span className="text-muted-foreground shrink-0">•</span>
+              <span className="font-medium truncate min-w-0">{activeSubmission.file_name}</span>
               <span
-                className="px-2 py-0.5 rounded text-[10px] font-mono font-bold capitalize"
+                className="px-2 py-0.5 rounded text-[10px] font-mono font-bold capitalize shrink-0"
                 style={{
                   backgroundColor:
                     activeSubmission.status === "approved"
@@ -307,9 +305,9 @@ export function VideoReviewPlayer({
               </span>
             </div>
 
-            {/* Creator Review Actions */}
+            {/* Desktop Creator Review Actions */}
             {canApprove && (
-              <div className="flex items-center gap-1.5">
+              <div className="hidden md:flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   disabled={isProcessingReview}
@@ -345,14 +343,14 @@ export function VideoReviewPlayer({
             )}
           </div>
 
-          {/* Media Player Container */}
+          {/* Media Player Container (Sticky below mobile top header when scrolling comments) */}
           {isImage ? (
             /* Image Review Canvas with Pin-on-image Markers */
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sticky top-13 lg:static z-20 bg-background/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none pb-1.5 lg:pb-0 rounded-xl">
               <div
                 ref={imageContainerRef}
                 onClick={handleImageClick}
-                className="relative rounded-lg overflow-hidden border border-border bg-black aspect-video flex items-center justify-center cursor-crosshair group select-none"
+                className="relative rounded-xl overflow-hidden border border-border bg-black aspect-video w-full flex items-center justify-center cursor-crosshair group select-none"
               >
                 <img
                   src={activeSubmission.file_url || "/placeholder-image.png"}
@@ -393,8 +391,8 @@ export function VideoReviewPlayer({
             </div>
           ) : (
             /* Interactive Video Review Player */
-            <div className="space-y-2">
-              <div className="relative rounded-lg overflow-hidden border border-border bg-black aspect-video flex items-center justify-center shadow-md">
+            <div className="space-y-2 sticky top-13 lg:static z-20 bg-background/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none pb-1.5 lg:pb-0 rounded-xl">
+              <div className="relative rounded-xl overflow-hidden border border-border bg-black aspect-video w-full flex items-center justify-center shadow-md">
                 <video
                   ref={videoRef}
                   src={activeSubmission.file_url || ""}
@@ -416,10 +414,10 @@ export function VideoReviewPlayer({
               </div>
 
               {/* Timestamp Quick Tag Button */}
-              <div className="flex items-center justify-between text-xs font-mono px-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono px-1">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Clock className="w-3.5 h-3.5 text-primary" />
-                  <span>Playback Time:</span>
+                  <span className="hidden sm:inline">Playback Time:</span>
                   <strong className="text-foreground">{formatTimestamp(currentTime)}</strong>
                   <span>/ {formatTimestamp(duration)}</span>
                 </div>
@@ -427,11 +425,11 @@ export function VideoReviewPlayer({
                 <button
                   type="button"
                   onClick={handleCaptureTimestamp}
-                  className="px-2.5 py-1 rounded text-[11px] font-mono bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 flex items-center gap-1 transition-colors cursor-pointer"
+                  className="min-h-[38px] sm:min-h-0 px-3 sm:px-2.5 py-1.5 sm:py-1 rounded-xl sm:rounded text-[11px] font-mono font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Pause video and pin current timestamp into feedback form"
                 >
-                  <Clock className="w-3 h-3" />
-                  <span>Tag Current Frame ({formatTimestamp(currentTime)})</span>
+                  <Clock className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+                  <span>Capture Timestamp ({formatTimestamp(currentTime)})</span>
                 </button>
               </div>
             </div>
@@ -550,10 +548,31 @@ export function VideoReviewPlayer({
           </div>
 
           {/* New Feedback Submission Form */}
-          <div className="p-3 border-t border-border bg-muted/20 space-y-2">
+          <div className="p-3 border-t border-border bg-muted/20 space-y-2.5">
+            {/* Mobile Horizontal Category Pills (< md) */}
+            <div className="flex md:hidden items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+              {feedbackCategories.map((cat) => {
+                const isSelected = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-2.5 py-1.5 rounded-full text-[11px] font-mono font-semibold border shrink-0 transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                        : "glass-subtle text-muted-foreground border-border"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="flex items-center justify-between gap-2 text-xs">
-              {/* Category Dropdown (Mandatory Mistake Categorization) */}
-              <div className="flex items-center gap-1 flex-1">
+              {/* Desktop Category Dropdown */}
+              <div className="hidden md:flex items-center gap-1 flex-1">
                 <Tag className="w-3 h-3 text-muted-foreground shrink-0" />
                 <select
                   value={selectedCategory}
@@ -573,7 +592,7 @@ export function VideoReviewPlayer({
               <button
                 type="button"
                 onClick={() => setSeverity(severity === "minor" ? "critical" : "minor")}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border transition-colors cursor-pointer ${
+                className={`min-h-[34px] md:min-h-0 px-2.5 md:px-2 py-1 md:py-0.5 rounded-xl md:rounded text-[10px] font-mono font-bold border transition-colors cursor-pointer ${
                   severity === "critical"
                     ? "bg-destructive text-destructive-foreground border-destructive"
                     : "bg-muted text-muted-foreground border-border"
@@ -602,27 +621,58 @@ export function VideoReviewPlayer({
                     ? `Feedback on pin (${activePin.x}%, ${activePin.y}%)...`
                     : "Feedback on this thumbnail/image..."
                 }
-                className="flex-1 p-2 text-xs rounded bg-background border border-border focus:outline-none focus:border-primary resize-none"
-                style={{ borderRadius: "var(--radius)" }}
+                className="flex-1 p-2.5 sm:p-2 text-base sm:text-xs rounded-xl bg-background border border-border focus:outline-none focus:border-primary resize-none"
               />
 
               <button
                 type="button"
                 disabled={!commentText.trim() || isSubmittingComment}
                 onClick={handleCreateComment}
-                className="px-3 py-2 rounded text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 cursor-pointer h-9 flex items-center justify-center shadow-xs"
-                style={{ borderRadius: "var(--radius)" }}
+                className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:h-9 px-3 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 cursor-pointer flex items-center justify-center shadow-xs"
               >
                 {isSubmittingComment ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-4 h-4 md:w-3.5 md:h-3.5 animate-spin" />
                 ) : (
-                  <Send className="w-3.5 h-3.5" />
+                  <Send className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 )}
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Mobile Full-Width 2-Button Review Footer (< md) */}
+      {canApprove && (
+        <div className="md:hidden grid grid-cols-2 gap-2 pt-2 border-t border-border">
+          <button
+            type="button"
+            disabled={isProcessingReview}
+            onClick={handleRequestRevision}
+            className="min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold bg-status-revision/15 text-status-revision hover:bg-status-revision/25 border border-status-revision/30 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Request Revisions</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={isProcessingReview || activeSubmission.status === "approved"}
+            onClick={handleApprove}
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${
+              activeSubmission.status === "approved"
+                ? "bg-status-done text-status-done-foreground opacity-90 cursor-default"
+                : "bg-status-done text-status-done-foreground hover:opacity-95"
+            }`}
+          >
+            {isProcessingReview ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <ThumbsUp className="w-3.5 h-3.5" />
+            )}
+            <span>{activeSubmission.status === "approved" ? "Approved" : "Approve"}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -631,10 +631,10 @@ export function ScriptNotes({
       </div>
 
       {!isMinimized && (
-        <div className="p-2 sm:p-4 md:p-5 space-y-2 sm:space-y-3">
+        <div className="p-1.5 sm:p-4 md:p-5 space-y-2 sm:space-y-3">
           {/* Pages Tab Strip + Type/Scribe Mode Switch */}
           <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 min-w-0">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 min-w-0 max-w-full">
               {doc.pages.map((page) => {
                 const isActive = page.id === activePage.id;
                 const isRenaming = renamingPageId === page.id;
@@ -723,7 +723,7 @@ export function ScriptNotes({
             </div>
 
             {/* Right: Per-Page Width (A4 vs Full) + Ink Toggle + Mode Switch */}
-            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+            <div className="flex items-center gap-1.5 shrink-0 flex-nowrap overflow-x-auto no-scrollbar max-w-full">
               {/* Per-Page Width Segmented Switch */}
               <div
                 className="flex items-center p-0.5 rounded-xl glass-subtle border border-border/70"
@@ -808,14 +808,14 @@ export function ScriptNotes({
 
           {/* Mode-Specific Toolbar: Rich Text Formatting OR Focused Scribing Bar */}
           {canEdit && noteMode === "type" && (
-            <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl glass-subtle border border-border/70">
+            <div className="flex flex-nowrap overflow-x-auto no-scrollbar md:flex-wrap items-center gap-1.5 p-1.5 rounded-xl glass-subtle border border-border/70">
           {/* Block Heading Style */}
           <select
             value={activeFormats.block}
             onMouseDown={(e) => e.stopPropagation()}
             onChange={(e) => applyBlockFormat(e.target.value as BlockFormat)}
             aria-label="Text style"
-            className="h-7 px-2 rounded-lg text-[11px] font-medium glass-input cursor-pointer"
+            className="h-9 md:h-7 px-2 rounded-lg text-xs md:text-[11px] font-medium glass-input cursor-pointer shrink-0"
           >
             <option value="p">Normal</option>
             <option value="h1">Heading 1</option>
@@ -825,12 +825,12 @@ export function ScriptNotes({
           </select>
 
           {/* Font Size Controls */}
-          <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-lg bg-background/40 border border-border/60">
+          <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-lg bg-background/40 border border-border/60 shrink-0 min-h-[36px] md:min-h-0">
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyFontSize(activeFormats.fontSize - 2)}
-              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+              className="p-1.5 md:p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
               title="Decrease font size"
             >
               <Minus className="w-3 h-3" />
@@ -861,14 +861,14 @@ export function ScriptNotes({
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyFontSize(activeFormats.fontSize + 2)}
-              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+              className="p-1.5 md:p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
               title="Increase font size"
             >
               <Plus className="w-3 h-3" />
             </button>
           </div>
 
-          <div className="w-px h-5 bg-border/70 mx-0.5" />
+          <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
 
           {/* Inline Formatting */}
           <ToolbarBtn
@@ -900,7 +900,7 @@ export function ScriptNotes({
             <Strikethrough className="w-3.5 h-3.5" />
           </ToolbarBtn>
 
-          <div className="w-px h-5 bg-border/70 mx-0.5" />
+          <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
 
           {/* Lists & Quote */}
           <ToolbarBtn
@@ -927,7 +927,7 @@ export function ScriptNotes({
             <Quote className="w-3.5 h-3.5" />
           </ToolbarBtn>
 
-          <div className="w-px h-5 bg-border/70 mx-0.5" />
+          <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
 
           {/* Indentation */}
           <ToolbarBtn
@@ -970,7 +970,7 @@ export function ScriptNotes({
             <AlignRight className="w-3.5 h-3.5" />
           </ToolbarBtn>
 
-          <div className="w-px h-5 bg-border/70 mx-0.5" />
+          <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
 
           {/* Clear Formatting */}
           <ToolbarBtn
@@ -988,9 +988,9 @@ export function ScriptNotes({
 
       {/* Focused Scribing Toolbar (S Pen, Touch & Mouse) */}
       {canEdit && noteMode === "scribe" && (
-        <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl glass-subtle border border-primary/30 bg-primary/5">
+        <div className="flex flex-nowrap overflow-x-auto no-scrollbar md:flex-wrap items-center gap-1.5 p-1.5 rounded-xl glass-subtle border border-primary/30 bg-primary/5">
           {/* Pen & Highlighter */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <ToolbarBtn
               active={scribeTool === "pen"}
               onClick={() => setScribeTool("pen")}
@@ -1007,15 +1007,15 @@ export function ScriptNotes({
             </ToolbarBtn>
           </div>
 
-          <div className="w-px h-5 bg-border/70 mx-0.5" />
+          <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
 
           {/* Two Erasers: Whole-Line Stroke Eraser + Partial Vector Eraser */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={() => setScribeTool("eraser_stroke")}
               title="Stroke Eraser: tap or swipe anywhere on a line to erase the entire line"
-              className={`px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border ${
+              className={`min-h-[36px] md:min-h-0 px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
                 scribeTool === "eraser_stroke"
                   ? "bg-rose-500/20 text-rose-500 border-rose-500/40 shadow-xs"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border-transparent"
@@ -1028,7 +1028,7 @@ export function ScriptNotes({
               type="button"
               onClick={() => setScribeTool("eraser_partial")}
               title="Partial Eraser: precision vector split eraser"
-              className={`px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border ${
+              className={`min-h-[36px] md:min-h-0 px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
                 scribeTool === "eraser_partial"
                   ? "bg-primary/20 text-primary border-primary/40 shadow-xs"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border-transparent"
@@ -1042,14 +1042,14 @@ export function ScriptNotes({
           {/* Size Presets (Pen thickness OR Partial Eraser size) */}
           {scribeTool === "pen" && (
             <>
-              <div className="w-px h-5 bg-border/70 mx-0.5" />
-              <div className="flex items-center gap-1">
+              <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
+              <div className="flex items-center gap-1 shrink-0">
                 {[1, 2, 4, 6].map((sz) => (
                   <button
                     key={sz}
                     type="button"
                     onClick={() => setPenSize(sz)}
-                    className={`px-1.5 py-0.5 rounded-lg text-[10px] font-mono transition-all cursor-pointer border ${
+                    className={`min-h-[36px] md:min-h-0 px-2 md:px-1.5 py-0.5 rounded-lg text-[10px] font-mono transition-all cursor-pointer border shrink-0 ${
                       penSize === sz
                         ? "bg-primary/20 text-primary border-primary/40 font-bold"
                         : "text-muted-foreground hover:text-foreground border-transparent hover:bg-muted/50"
@@ -1065,8 +1065,8 @@ export function ScriptNotes({
 
           {scribeTool === "eraser_partial" && (
             <>
-              <div className="w-px h-5 bg-border/70 mx-0.5" />
-              <div className="flex items-center gap-1">
+              <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
+              <div className="flex items-center gap-1 shrink-0">
                 {[
                   { sz: 10, label: "S" },
                   { sz: 18, label: "M" },
@@ -1076,7 +1076,7 @@ export function ScriptNotes({
                     key={opt.sz}
                     type="button"
                     onClick={() => setEraserSize(opt.sz)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-mono transition-all cursor-pointer border ${
+                    className={`min-h-[36px] md:min-h-0 px-2.5 md:px-2 py-0.5 rounded-lg text-[10px] font-mono transition-all cursor-pointer border shrink-0 ${
                       eraserSize === opt.sz
                         ? "bg-primary/20 text-primary border-primary/40 font-bold"
                         : "text-muted-foreground hover:text-foreground border-transparent hover:bg-muted/50"
@@ -1093,8 +1093,8 @@ export function ScriptNotes({
           {/* 6 Curated Ink Colors (shown for Pen & Highlighter) */}
           {(scribeTool === "pen" || scribeTool === "highlighter") && (
             <>
-              <div className="w-px h-5 bg-border/70 mx-0.5" />
-              <div className="flex items-center gap-1.5 px-1">
+              <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
+              <div className="flex items-center gap-1.5 px-1 shrink-0">
                 {INK_COLOR_PRESETS.map((preset) => {
                   const swatchColor =
                     preset.id === "auto"
@@ -1109,7 +1109,7 @@ export function ScriptNotes({
                       type="button"
                       onClick={() => setInkColor(preset.id)}
                       title={preset.label}
-                      className={`w-5 h-5 rounded-full flex items-center justify-center transition-transform cursor-pointer border ${
+                      className={`w-6 h-6 md:w-5 md:h-5 rounded-full flex items-center justify-center transition-transform cursor-pointer border shrink-0 ${
                         isSelected
                           ? "scale-115 ring-2 ring-primary ring-offset-1 ring-offset-background border-primary"
                           : "border-border/80 hover:scale-105"
@@ -1132,13 +1132,13 @@ export function ScriptNotes({
             </>
           )}
 
-          <div className="w-px h-5 bg-border/70 mx-0.5" />
+          <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
 
           {/* Touch & Samsung S Pen Controls */}
           <button
             type="button"
             onClick={() => setAllowFingerDraw((v) => !v)}
-            className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-all cursor-pointer border ${
+            className={`min-h-[36px] md:min-h-0 px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
               allowFingerDraw
                 ? "bg-primary/15 text-primary border-primary/35"
                 : "bg-muted/50 text-muted-foreground border-border/70 hover:text-foreground"
@@ -1156,7 +1156,7 @@ export function ScriptNotes({
           <button
             type="button"
             onClick={() => setPalmRejection((v) => !v)}
-            className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-all cursor-pointer border ${
+            className={`min-h-[36px] md:min-h-0 px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
               palmRejection
                 ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/35"
                 : "bg-muted/50 text-muted-foreground border-border/70"
@@ -1171,7 +1171,7 @@ export function ScriptNotes({
             <button
               type="button"
               onClick={handleClearPageInk}
-              className="ml-auto px-2 py-1 rounded-lg text-[11px] font-medium text-destructive hover:bg-destructive/15 border border-transparent hover:border-destructive/30 flex items-center gap-1 transition-all cursor-pointer"
+              className="ml-auto min-h-[36px] md:min-h-0 px-2 py-1 rounded-lg text-[11px] font-medium text-destructive hover:bg-destructive/15 border border-transparent hover:border-destructive/30 flex items-center gap-1 transition-all cursor-pointer shrink-0 whitespace-nowrap"
               title="Clear all ink strokes on this page (Undoable with Ctrl+Z)"
             >
               <Trash2 className="w-3 h-3" />
@@ -1184,7 +1184,9 @@ export function ScriptNotes({
       {/* Unified Scrollable Paper (Rich Text + Synchronized Vector Ink Overlay) */}
       <div
         className={`relative w-full rounded-xl glass-input overflow-y-auto resize-y ${
-          effectivePageWidth === "a4" ? "bg-muted/25 px-2 py-3 sm:px-6 sm:py-5" : ""
+          effectivePageWidth === "a4"
+            ? "bg-background/85 sm:bg-muted/25 px-0 py-0 sm:px-6 sm:py-5"
+            : ""
         } ${
           isExpandedWorkspace
             ? "h-[calc(100dvh-355px)] min-h-[260px]"
@@ -1211,7 +1213,7 @@ export function ScriptNotes({
           style={{ paddingBottom: `${extraHeight}px` }}
           className={`relative min-h-full transition-[max-width] duration-200 ${
             effectivePageWidth === "a4"
-              ? "max-w-[794px] w-full mx-auto rounded-xl bg-background/85 border border-border/70 shadow-sm"
+              ? "max-w-[794px] w-full mx-auto rounded-none sm:rounded-xl bg-background/85 border-0 sm:border sm:border-border/70 sm:shadow-sm"
               : "w-full"
           }`}
         >
@@ -1324,7 +1326,7 @@ function ToolbarBtn({
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       title={title}
-      className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+      className={`min-w-[36px] min-h-[36px] md:min-w-0 md:min-h-0 flex items-center justify-center p-1.5 rounded-lg transition-all cursor-pointer shrink-0 ${
         active
           ? "bg-primary/20 text-primary border border-primary/35 shadow-xs"
           : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent"

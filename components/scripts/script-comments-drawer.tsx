@@ -88,10 +88,16 @@ export function ScriptCommentsDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex justify-end">
+    <div
+      className="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex items-end md:items-stretch justify-end"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
-        className="w-full max-w-md glass-floating rounded-l-2xl rounded-r-none h-full flex flex-col justify-between animate-in slide-in-from-right duration-200"
+        className="w-full md:w-96 md:max-w-md glass-floating rounded-t-3xl rounded-b-none md:rounded-l-2xl md:rounded-r-none max-h-[85dvh] md:max-h-none md:h-full pb-[env(safe-area-inset-bottom)] md:pb-0 flex flex-col justify-between animate-in slide-in-from-bottom md:slide-in-from-right duration-200"
       >
+        <div className="md:hidden mobile-sheet-handle mt-2.5 mb-0.5" />
         {/* Drawer Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -290,7 +296,7 @@ export function ScriptCommentsDrawer({
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full h-8 px-2.5 text-[11px] rounded-xl glass-input cursor-pointer font-mono"
+              className="w-full h-9 md:h-8 px-2.5 text-base sm:text-[11px] rounded-xl glass-input cursor-pointer font-mono"
             >
               <option value="General">General Feedback</option>
               {feedbackCategories.map((cat) => (
@@ -314,7 +320,7 @@ export function ScriptCommentsDrawer({
                 }
               }}
               placeholder="Leave line feedback (e.g. Trim sentence, Hook too weak)..."
-              className="flex-1 p-2.5 text-xs rounded-xl glass-input resize-none"
+              className="flex-1 p-2.5 text-base sm:text-xs rounded-xl glass-input resize-none"
             />
 
             <button

@@ -86,11 +86,11 @@ function SettingsContent() {
     : [{ id: "defaults", label: "Preferences", icon: Sliders }];
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-4 md:p-8">
+    <div className="flex-1 flex flex-col justify-between px-3 py-3 pb-24 md:p-8">
       {/* Settings Sub-Navigation & Controls */}
-      <main className="w-full max-w-6xl mx-auto my-2 flex-1">
+      <main className="w-full max-w-6xl mx-auto my-1 md:my-2 flex-1">
         {/* Settings Header Title */}
-        <div className="mb-6 pb-4 border-b border-border flex items-center justify-between">
+        <div className="mb-4 md:mb-6 pb-3 md:pb-4 border-b border-border flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight">
@@ -115,7 +115,7 @@ function SettingsContent() {
         </div>
 
         {/* Sub-Navigation Tabs */}
-        <div className="inline-flex max-w-full items-center gap-1.5 mb-6 glass-subtle p-1.5 rounded-2xl overflow-x-auto">
+        <div className="flex flex-nowrap w-full items-center gap-1.5 mb-5 md:mb-6 glass-subtle p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
           {tabs.map((t) => {
             const Icon = t.icon;
             const isActive = currentTab === t.id;
@@ -132,7 +132,7 @@ function SettingsContent() {
                     router.push("/settings?tab=defaults");
                   }
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250 cursor-pointer shrink-0 ${
+                className={`min-h-[38px] md:min-h-0 flex items-center gap-2 px-3.5 md:px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250 cursor-pointer shrink-0 whitespace-nowrap ${
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -153,7 +153,7 @@ function SettingsContent() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full text-center text-xs text-muted-foreground py-4 font-mono border-t border-border max-w-6xl mx-auto">
+      <footer className="hidden md:block w-full text-center text-xs text-muted-foreground py-4 font-mono border-t border-border max-w-6xl mx-auto">
         ContentPipe • {isCreator ? "Creator Settings Module" : "Member Preferences"}
       </footer>
     </div>

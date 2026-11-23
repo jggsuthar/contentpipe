@@ -471,7 +471,7 @@ export function PublishCalendar({
               <button
                 type="button"
                 onClick={() => onModeChange("floating")}
-                className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                className="hidden md:inline-flex p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                 title="Pop out to floating window"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -562,11 +562,17 @@ export function PublishCalendar({
     </div>
   );
 
-  // Render Mode 1: Docked Header Panel
+  // Render Mode 1: Docked Header Panel on Desktop / Bottom Sheet Overlay on Mobile
   if (mode === "docked") {
     return (
-      <div className="absolute top-full left-0 right-0 z-40 mt-2 animate-in fade-in slide-in-from-top-2 duration-200 flex justify-center px-2">
-        <div className="w-full max-w-[790px] glass-floating backdrop-blur-2xl rounded-2xl overflow-hidden">
+      <div
+        className="fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-end md:bg-transparent md:backdrop-blur-none md:pointer-events-none md:inset-auto md:absolute md:top-full md:left-0 md:right-0 md:z-40 md:mt-2 md:flex md:justify-center md:px-2 animate-in fade-in duration-200"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onModeChange("closed");
+        }}
+      >
+        <div className="w-full md:pointer-events-auto md:max-w-[790px] glass-floating backdrop-blur-2xl rounded-t-3xl md:rounded-2xl max-h-[82dvh] md:max-h-none pb-[env(safe-area-inset-bottom)] md:pb-0 overflow-hidden flex flex-col">
+          <div className="md:hidden mobile-sheet-handle mt-2.5 mb-0.5" />
           {calendarContent}
         </div>
       </div>

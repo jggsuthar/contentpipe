@@ -124,6 +124,31 @@ export function IdeaBankFab() {
     [ideas]
   );
 
+  // Broadcast Idea Bank count & missing-details state for mobile bottom nav + listen for open triggers
+  useEffect(() => {
+    if (!isCreator) return;
+
+    const broadcastState = () => {
+      window.dispatchEvent(
+        new CustomEvent("contentpipe:idea-bank-state", {
+          detail: { count: ideas.length, hasMissingDetails },
+        })
+      );
+    };
+
+    const handleOpenEvent = () => {
+      setIsOpen(true);
+    };
+
+    broadcastState();
+    window.addEventListener("contentpipe:open-idea-bank", handleOpenEvent);
+    window.addEventListener("contentpipe:request-idea-bank-state", broadcastState);
+    return () => {
+      window.removeEventListener("contentpipe:open-idea-bank", handleOpenEvent);
+      window.removeEventListener("contentpipe:request-idea-bank-state", broadcastState);
+    };
+  }, [isCreator, ideas.length, hasMissingDetails]);
+
   const isHiddenRoute =
     pathname === "/" ||
     pathname === "/privacy" ||
@@ -138,7 +163,7 @@ export function IdeaBankFab() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-5 right-5 z-40 glass-floating rounded-full shadow-lg hover:scale-105 transition-all px-4 py-2.5 flex items-center gap-2 border border-border cursor-pointer group"
+        className="hidden md:flex fixed bottom-5 right-5 z-40 glass-floating rounded-full shadow-lg hover:scale-105 transition-all px-4 py-2.5 items-center gap-2 border border-border cursor-pointer group"
         title="Open Idea Bank (Alt + I)"
         aria-label="Open Idea Bank"
       >
