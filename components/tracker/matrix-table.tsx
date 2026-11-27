@@ -695,6 +695,19 @@ export function MatrixTable({
                   )
                 : null;
             const isPublishDone = Boolean(publishState?.isPublishDone);
+            const allRequiredMiscDone = miscTasks.every((mt) =>
+              (row.misc_tasks_status || []).some(
+                (m) => m.task_name.toLowerCase() === mt.task_name.toLowerCase() && m.is_done
+              )
+            );
+            const allWorkflowStagesDone =
+              visibleWorkflowTasks.length === 0 ||
+              lastDoneIndex === visibleWorkflowTasks.length - 1;
+            const canShowArchive =
+              !isEmptyPlaceholder &&
+              Boolean(row.is_archive_eligible) &&
+              allRequiredMiscDone &&
+              allWorkflowStagesDone;
             const canEditPublishDate =
               (isCreator || canChangePublish) && !isPublishDone && Boolean(onChangePublishDate);
 
@@ -788,8 +801,7 @@ export function MatrixTable({
                         </button>
                       )
                     ) : (
-                      !isEmptyPlaceholder &&
-                      row.is_archive_eligible &&
+                      canShowArchive &&
                       (isCreator || indexPermissions?.archive === "edit") && (
                         <button
                           type="button"
@@ -1158,6 +1170,20 @@ export function MatrixTable({
               const miscCompletedCount = (row.misc_tasks_status || []).filter((m) => m.is_done).length;
               const miscTotalCount = miscTasks.length;
               const allMiscDone = miscTotalCount > 0 && miscCompletedCount === miscTotalCount;
+              const allRequiredMiscDone = miscTasks.every((mt) =>
+                (row.misc_tasks_status || []).some(
+                  (m) => m.task_name.toLowerCase() === mt.task_name.toLowerCase() && m.is_done
+                )
+              );
+              const { lastDoneIndex: rowLastDoneIndex } = computeRowLastDone(row);
+              const allWorkflowStagesDone =
+                visibleWorkflowTasks.length === 0 ||
+                rowLastDoneIndex === visibleWorkflowTasks.length - 1;
+              const canShowArchive =
+                !isEmptyPlaceholder &&
+                Boolean(row.is_archive_eligible) &&
+                allRequiredMiscDone &&
+                allWorkflowStagesDone;
 
               return (
                 <tr
@@ -1778,7 +1804,7 @@ export function MatrixTable({
                         <span className="text-[10px] font-mono text-muted-foreground opacity-30">
                           —
                         </span>
-                      ) : row.is_archive_eligible ? (
+                      ) : canShowArchive ? (
                         isCreator || indexPermissions?.archive === "edit" ? (
                           <button
                             type="button"

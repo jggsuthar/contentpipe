@@ -92,11 +92,12 @@ export function FocusRadarTable({
 
   const focusVideoRows = rows.filter(
     (r) =>
-      r.urgency === "delayed" ||
-      r.urgency === "near" ||
-      Boolean(r.reviewInfo) ||
-      r.stageStatus === "revision_needed" ||
-      r.isArchiveEligible
+      !r.isArchiveEligible &&
+      !r.isPublishReady &&
+      (r.urgency === "delayed" ||
+        r.urgency === "near" ||
+        Boolean(r.reviewInfo) ||
+        r.stageStatus === "revision_needed")
   );
   const urgentOpenSlots = openSlots.filter((s) => s.urgency !== "on_track");
 

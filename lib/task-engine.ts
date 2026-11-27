@@ -190,14 +190,20 @@ export function checkArchiveEligibility(
     }
   }
 
-  // Condition 3: Publish Date has passed (Today >= Publish Date)
-  const pDate = new Date(publishDate);
-  pDate.setHours(0, 0, 0, 0);
+  // Condition 3: Publish Date has passed (Today >= Publish Date at UTC calendar day)
+  const pDateObj = new Date(publishDate);
+  const pubUtcDayMs = Date.UTC(
+    pDateObj.getUTCFullYear(),
+    pDateObj.getUTCMonth(),
+    pDateObj.getUTCDate()
+  );
+  const refUtcDayMs = Date.UTC(
+    referenceDate.getUTCFullYear(),
+    referenceDate.getUTCMonth(),
+    referenceDate.getUTCDate()
+  );
 
-  const ref = new Date(referenceDate);
-  ref.setHours(23, 59, 59, 999);
-
-  const publishDatePassed = ref.getTime() >= pDate.getTime();
+  const publishDatePassed = refUtcDayMs >= pubUtcDayMs;
   if (!publishDatePassed) {
     missingRequirements.push("Scheduled publish date has not yet passed");
   }

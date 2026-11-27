@@ -83,16 +83,59 @@ export async function POST(req: NextRequest) {
       is_hidden: wt.is_hidden,
     }));
 
-    // Task statuses including automated Ideation check
+    // Task statuses including automated Ideation and Publish checks (matching Tracker Matrix)
     const currentStatuses = item.task_instances.map((t) => ({
       task_name: t.task_name,
       status: t.status,
     }));
 
-    // If Ideation is not explicitly stored in task_instances, check if title exists
-    const hasIdeation = currentStatuses.some((t) => t.task_name.toLowerCase() === "ideation");
-    if (!hasIdeation && item.title) {
-      currentStatuses.push({ task_name: "Ideation", status: "done" });
+    // Ensure Ideation is marked done whenever title/ID exists
+    const ideationIdx = currentStatuses.findIndex(
+      (t) => t.task_name.toLowerCase() === "ideation"
+    );
+    if (item.title && item.unique_content_id) {
+      if (ideationIdx >= 0) {
+        currentStatuses[ideationIdx].status = "done";
+      } else {
+        currentStatuses.push({ task_name: "Ideation", status: "done" });
+      }
+    }
+
+    // Automatically evaluate Publish status: all prior visible tasks done + Today >= Publish Date
+    const visibleWorkflowTasks = workflowTasks.filter((t) => !t.is_hidden);
+    const publishTaskDef = visibleWorkflowTasks.find(
+      (t) => t.task_name.toLowerCase() === "publish"
+    );
+    if (publishTaskDef) {
+      const publishIdx = visibleWorkflowTasks.findIndex((t) => t.id === publishTaskDef.id);
+      const priorTasks = visibleWorkflowTasks.slice(0, publishIdx);
+      const allPriorDone = priorTasks.every((prior) => {
+        const pKey = prior.task_name.toLowerCase();
+        if (pKey === "ideation") {
+          return Boolean(item.title && item.unique_content_id);
+        }
+        return currentStatuses.find((t) => t.task_name.toLowerCase() === pKey)?.status === "done";
+      });
+
+      const pubDateObj = new Date(item.publish_date);
+      const now = new Date();
+      const pubUtcDay = Date.UTC(
+        pubDateObj.getUTCFullYear(),
+        pubDateObj.getUTCMonth(),
+        pubDateObj.getUTCDate()
+      );
+      const todayUtcDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const isPublishDone = allPriorDone && todayUtcDay >= pubUtcDay;
+
+      const pubIdx = currentStatuses.findIndex((t) => t.task_name.toLowerCase() === "publish");
+      if (pubIdx >= 0) {
+        currentStatuses[pubIdx].status = isPublishDone ? "done" : "not_done";
+      } else {
+        currentStatuses.push({
+          task_name: publishTaskDef.task_name,
+          status: isPublishDone ? "done" : "not_done",
+        });
+      }
     }
 
     let miscStatuses: { task_name: string; is_done: boolean }[] = [];
